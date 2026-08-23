@@ -1,6 +1,6 @@
 ---
 name: survey
-description: Survey the repository and write .buildcli/context.md, split into independently loadable domain bands.
+description: Survey the repository and write .prism/context.md, split into independently loadable domain bands.
 ---
 
 # Survey
@@ -38,6 +38,22 @@ band must be self-contained, and none may depend on having read the others.
    - Confidence per band (high / medium / low)
    - Assumptions made
    - Every field left as `NEEDS CLARIFICATION`
+
+## Refreshing an existing context
+
+`survey` owns `.buildcli/context.md` — it is the one stage that writes the whole file. With the
+harness enforced, a raw `Read` of that file is blocked even here, and that is deliberate: a refresh
+should be driven by repository evidence, not by copying forward what the last run guessed.
+
+To see what is already recorded without reading the file whole:
+
+```bash
+.buildcli/runtime/bcx bands              # which bands exist and which are still empty
+.buildcli/runtime/bcx band <name>        # one band at a time
+.buildcli/runtime/bcx header             # the shared header
+```
+
+Writing the file is never blocked. Only reading it whole is.
 
 ## Band ownership
 

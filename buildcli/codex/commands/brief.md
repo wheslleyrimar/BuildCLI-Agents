@@ -15,7 +15,7 @@ $ARGUMENTS
 
 1. Read the kind: `defect:` prefix → `blueprints/defects/`; otherwise `blueprints/features/`.
 2. Build a kebab-case slug and create the directory.
-3. Read only the header blocks of `.buildcli/context.md` — Metadata, Stack, Architecture. Skip the bands.
+3. Load the shared header with `.buildcli/runtime/bcx header` — Metadata, Stack, Architecture. It contains no band.
 4. Derive actors, journeys (primary, alternative, failure), and edge cases.
 5. Write acceptance criteria in Given / When / Then form. Each one must be testable on its own.
 6. Add numbered assumptions, at most three open questions marked `NEEDS CLARIFICATION`, and an out-of-scope list.
@@ -29,7 +29,7 @@ $ARGUMENTS
    - Blocking questions: <list or "none">
    - Ready for shape: yes | no
    ```
-8. Save `brief.md` and run `buildcli active blueprints/<kind>/<slug>` to move the pointer.
+8. Save `brief.md` and run `bcx active blueprints/<kind>/<slug>` to move the pointer.
 9. Return the path, the confidence level, and anything still unresolved.
 
 ## Rules

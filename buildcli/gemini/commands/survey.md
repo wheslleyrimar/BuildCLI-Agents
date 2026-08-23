@@ -19,6 +19,11 @@ $ARGUMENTS
 5. No evidence for a band → `N/A — not detected`. Thin evidence → `NEEDS CLARIFICATION`.
 6. Return findings, per-band confidence, and every open question.
 
+## Refreshing
+
+`survey` owns this file and rewrites it from repository evidence. To see what is already recorded
+without reading it whole, use `.buildcli/runtime/bcx bands`, `.buildcli/runtime/bcx band <name>`, and `.buildcli/runtime/bcx header`.
+
 ## Rules
 
 - Facts from files beat inference.

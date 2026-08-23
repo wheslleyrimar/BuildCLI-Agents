@@ -6,7 +6,13 @@ output: Inline report. No files written.
 
 ## Steps
 
-1. Run `buildcli active`. Missing → report "No active blueprint. Run `/brief` to start." and stop.
+1. Ask the runtime — it is the source of truth for stage, unit counts, and band population:
+   ```bash
+   .buildcli/runtime/bcx status --json
+   .buildcli/runtime/bcx next
+   .buildcli/runtime/bcx doctor
+   ```
+   No active blueprint → Missing → report "No active blueprint. Run `/brief` to start." and stop.
 2. Load whichever of `brief.md`, `shape.md`, `worklist.md`, `audit.md` exist in that directory.
 3. Infer the stage: brief → shape → worklist → build → audit.
 4. Count unit states from `worklist.md`.

@@ -38,23 +38,23 @@ buildcli/
 
 ## Runtime commands
 
-Not skills — a real executable at `.buildcli/runtime/buildcli`. Skills call it instead of reading
+Not skills — a real executable at `.buildcli/runtime/bcx`. Skills call it instead of reading
 state files by hand. Full contract in `RUNTIME.md`.
 
 | Command | Returns |
 |---|---|
-| `buildcli band <name>` | exactly one context band |
-| `buildcli header` | the shared header, with no band |
-| `buildcli bands` | every band, populated or empty |
-| `buildcli active [path]` | read or move the active blueprint pointer |
-| `buildcli blueprints` | every blueprint with its stage |
-| `buildcli next` | units ready now, grouped by band |
-| `buildcli graph` | dependency graph, critical path, cycle report |
-| `buildcli claim\|done\|block <id>` | unit state transitions, written back to worklist.md |
-| `buildcli verify` | runs the test command, reports the exit code |
-| `buildcli status` | pipeline snapshot |
-| `buildcli doctor` | every structural problem in one list |
-| `buildcli gate <name>` | hook handler: `pre-read`, `pre-write`, `post`, `stop` |
+| `bcx band <name>` | exactly one context band |
+| `bcx header` | the shared header, with no band |
+| `bcx bands` | every band, populated or empty |
+| `bcx active [path]` | read or move the active blueprint pointer |
+| `bcx blueprints` | every blueprint with its stage |
+| `bcx next` | units ready now, grouped by band |
+| `bcx graph` | dependency graph, critical path, cycle report |
+| `bcx claim\|done\|block <id>` | unit state transitions, written back to worklist.md |
+| `bcx verify` | runs the test command, reports the exit code |
+| `bcx status` | pipeline snapshot |
+| `bcx doctor` | every structural problem in one list |
+| `bcx gate <name>` | hook handler: `pre-read`, `pre-write`, `post`, `stop` |
 
 ## Band skills
 

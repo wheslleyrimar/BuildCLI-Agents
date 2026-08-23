@@ -34,18 +34,19 @@ Startup behavior (required):
 5. Missing critical information → mark `NEEDS CLARIFICATION` and continue on safe defaults.
 
 Runtime (always prefer it over reading state files by hand):
-- `buildcli band <name>`   — load exactly one context band
-- `buildcli header`        — the shared header, without any band
-- `buildcli active [path]` — read or move the active blueprint pointer
-- `buildcli next`          — units ready to start, grouped by band
-- `buildcli graph`         — dependency graph, critical path, cycle report
-- `buildcli claim|done|block <id>` — unit state transitions
-- `buildcli verify`        — run the project's test command
-- `buildcli status --json` — pipeline snapshot
-- `buildcli doctor`        — validate context, graph, and configuration
+- `.buildcli/runtime/bcx band <name>`   — load exactly one context band
+- `.buildcli/runtime/bcx header`        — the shared header, without any band
+- `.buildcli/runtime/bcx active [path]` — read or move the active blueprint pointer
+- `.buildcli/runtime/bcx next`          — units ready to start, grouped by band
+- `.buildcli/runtime/bcx graph`         — dependency graph, critical path, cycle report
+- `.buildcli/runtime/bcx claim|done|block <id>` — unit state transitions
+- `.buildcli/runtime/bcx verify`        — run the project's test command
+- `.buildcli/runtime/bcx status --json` — pipeline snapshot
+- `.buildcli/runtime/bcx doctor`        — validate context, graph, and configuration
 
-It lives at `.buildcli/runtime/buildcli`. With `rig --enforce` applied, reading
-`.buildcli/context.md` directly is blocked by a PreToolUse hook.
+Invoke it by that path, not as a bare `bcx` — it is project-local and not on PATH.
+With `rig --enforce` applied, reading `.buildcli/context.md` directly is blocked
+by a PreToolUse hook.
 
 Shared state:
 - `.buildcli/context.md`   — project context, split into [band:*] blocks

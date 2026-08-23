@@ -27,7 +27,8 @@ broken code. Nothing beyond it.
    - migration, model, query, schema → `[band:store]`
    - test file → `[band:verify]`
    - pipeline, infra, environment config → `[band:delivery]`
-4. Read **only** that band from `.buildcli/context.md`.
+4. Load **only** that band: `.buildcli/runtime/bcx band <name>`. Never the whole file — with the
+   harness enforced, that read is blocked.
 5. Read the affected file(s), and no more of them than the defect requires.
 6. Name the root cause. If you are not sure, state the hypothesis before changing anything.
 7. Apply the minimal fix that resolves it without side effects.
@@ -40,7 +41,7 @@ When `--trace` is passed:
 1. Build a kebab-case slug from the description.
 2. Create `blueprints/defects/<slug>/`.
 3. Write a short `brief.md`: summary, root cause hypothesis, affected files, acceptance criterion (the defect no longer reproduces), owning band.
-4. Run `buildcli active blueprints/defects/<slug>`.
+4. Run `bcx active blueprints/defects/<slug>`.
 5. Fix as normal.
 6. Once fixed, update `brief.md` with the confirmed root cause and what changed.
 

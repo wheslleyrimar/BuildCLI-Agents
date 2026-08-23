@@ -108,12 +108,12 @@ install_runtime() {
   mkdir -p "$dest"
   # The runtime is always copied. Symlinking it would break the hook commands
   # recorded in settings.json the moment the source tree moves.
-  rm -rf "$dest/bcli"
-  cp -R "$src/bcli" "$dest/bcli"
-  cp "$src/buildcli" "$dest/buildcli"
-  chmod +x "$dest/buildcli"
+  rm -rf "$dest/bcx_lib"
+  cp -R "$src/bcx_lib" "$dest/bcx_lib"
+  cp "$src/bcx" "$dest/bcx"
+  chmod +x "$dest/bcx"
   find "$dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-  echo "  runtime  $dest/buildcli"
+  echo "  runtime  $dest/bcx"
 
   if ! python3 --version >/dev/null 2>&1; then
     echo "  WARNING: python3 not found on PATH — the runtime and its gates will not run." >&2
@@ -131,6 +131,19 @@ ensure_state() {
   mkdir -p "$REPO_PATH/.buildcli/journal"
   if [[ ! -f "$REPO_PATH/.buildcli/journal/.gitignore" ]]; then
     printf '*.log\n!.gitignore\n' > "$REPO_PATH/.buildcli/journal/.gitignore"
+  fi
+
+  # The runtime belongs in the target project's history: settings.json hooks point at
+  # .buildcli/runtime/bcx, so a teammate who clones without it gets broken hooks.
+  if [[ ! -f "$REPO_PATH/.buildcli/.gitignore" ]]; then
+    cat > "$REPO_PATH/.buildcli/.gitignore" <<'IGNORE'
+# Commit the runtime and the context; keep local state out.
+journal/*.log
+active
+enforce.json
+__pycache__/
+IGNORE
+    echo "  state    $REPO_PATH/.buildcli/.gitignore"
   fi
 
   if [[ ! -f "$context" ]]; then
@@ -227,18 +240,19 @@ Startup behavior (required):
 5. Missing critical information → mark \`NEEDS CLARIFICATION\` and continue on safe defaults.
 
 Runtime (always prefer it over reading state files by hand):
-- \`buildcli band <name>\`   — load exactly one context band
-- \`buildcli header\`        — the shared header, without any band
-- \`buildcli active [path]\` — read or move the active blueprint pointer
-- \`buildcli next\`          — units ready to start, grouped by band
-- \`buildcli graph\`         — dependency graph, critical path, cycle report
-- \`buildcli claim|done|block <id>\` — unit state transitions
-- \`buildcli verify\`        — run the project's test command
-- \`buildcli status --json\` — pipeline snapshot
-- \`buildcli doctor\`        — validate context, graph, and configuration
+- \`.buildcli/runtime/bcx band <name>\`   — load exactly one context band
+- \`.buildcli/runtime/bcx header\`        — the shared header, without any band
+- \`.buildcli/runtime/bcx active [path]\` — read or move the active blueprint pointer
+- \`.buildcli/runtime/bcx next\`          — units ready to start, grouped by band
+- \`.buildcli/runtime/bcx graph\`         — dependency graph, critical path, cycle report
+- \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
+- \`.buildcli/runtime/bcx verify\`        — run the project's test command
+- \`.buildcli/runtime/bcx status --json\` — pipeline snapshot
+- \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
 
-It lives at \`.buildcli/runtime/buildcli\`. With \`rig --enforce\` applied, reading
-\`.buildcli/context.md\` directly is blocked by a PreToolUse hook.
+Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
+With \`rig --enforce\` applied, reading \`.buildcli/context.md\` directly is blocked
+by a PreToolUse hook.
 
 Shared state:
 - \`.buildcli/context.md\`   — project context, split into [band:*] blocks
@@ -297,6 +311,21 @@ Navigation:
 - \`/focus\`  → move the active blueprint pointer
 - \`/patch\`  → minimal defect fix; add --trace for a defect blueprint
 
+Runtime (always prefer it over reading state files by hand):
+- \`.buildcli/runtime/bcx band <name>\`   — load exactly one context band
+- \`.buildcli/runtime/bcx header\`        — the shared header, without any band
+- \`.buildcli/runtime/bcx active [path]\` — read or move the active blueprint pointer
+- \`.buildcli/runtime/bcx next\`          — units ready to start, grouped by band
+- \`.buildcli/runtime/bcx graph\`         — dependency graph, critical path, cycle report
+- \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
+- \`.buildcli/runtime/bcx verify\`        — run the project's test command
+- \`.buildcli/runtime/bcx status --json\` — pipeline snapshot
+- \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
+
+Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
+It needs python3. Blocking enforcement hooks are Claude Code only; here the runtime
+gives you deterministic band extraction, real scheduling, and executable verification.
+
 Shared state:
 - \`.buildcli/context.md\`   — project context, split into [band:*] blocks
 - \`.buildcli/active\`       — path to the active blueprint directory
@@ -354,6 +383,21 @@ Navigation:
 - \`/focus\`  → move the active blueprint pointer
 - \`/patch\`  → root cause analysis and minimal fix; add --trace for a defect blueprint
 
+Runtime (always prefer it over reading state files by hand):
+- \`.buildcli/runtime/bcx band <name>\`   — load exactly one context band
+- \`.buildcli/runtime/bcx header\`        — the shared header, without any band
+- \`.buildcli/runtime/bcx active [path]\` — read or move the active blueprint pointer
+- \`.buildcli/runtime/bcx next\`          — units ready to start, grouped by band
+- \`.buildcli/runtime/bcx graph\`         — dependency graph, critical path, cycle report
+- \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
+- \`.buildcli/runtime/bcx verify\`        — run the project's test command
+- \`.buildcli/runtime/bcx status --json\` — pipeline snapshot
+- \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
+
+Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
+It needs python3. Blocking enforcement hooks are Claude Code only; here the runtime
+gives you deterministic band extraction, real scheduling, and executable verification.
+
 Shared state:
 - \`.buildcli/context.md\`   — project context, split into [band:*] blocks
 - \`.buildcli/active\`       — path to the active blueprint directory
@@ -383,6 +427,18 @@ install_copilot() {
   local block; block="$(mktemp)"
   cat > "$block" <<DOC
 $BEGIN_MARK
+## Runtime
+
+A project-local executable at \`.buildcli/runtime/bcx\` (needs python3). Prefer it over
+reading state files by hand:
+
+- \`.buildcli/runtime/bcx band <name>\` — load exactly one context band
+- \`.buildcli/runtime/bcx next\` — units ready to start, grouped by band
+- \`.buildcli/runtime/bcx graph\` — dependency graph and cycle report
+- \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
+- \`.buildcli/runtime/bcx verify\` — run the project's test command
+- \`.buildcli/runtime/bcx doctor\` — validate context, graph, and configuration
+
 ## Shared state
 
 Every agent on this project reads and writes the same files:

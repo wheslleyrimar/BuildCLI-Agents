@@ -144,9 +144,9 @@ def pre_read(root, event):
     return _deny(
         "Blocked: reading the whole context file defeats band scoping.\n"
         "Load exactly the band you need:\n"
-        "    buildcli band <service|interface|store|verify|delivery>\n"
+        "    bcx band <service|interface|store|verify|delivery>\n"
         "For the shared header only (Metadata / Stack / Architecture):\n"
-        "    buildcli header"
+        "    bcx header"
     )
 
 
@@ -181,8 +181,8 @@ def pre_write(root, event):
         "is in '%s'.\n"
         "Cross-band work is a separate unit. Either flag it as a follow-up, or "
         "close this unit and claim one in the other band:\n"
-        "    buildcli done <unit>\n"
-        "    buildcli next" % (rel, owner[0], band))
+        "    bcx done <unit>\n"
+        "    bcx next" % (rel, owner[0], band))
 
 
 def post_tool(root, event):
@@ -217,7 +217,7 @@ HANDLERS = {
 
 
 def dispatch(name):
-    """Entry point for `buildcli gate <name>`. Never propagates an exception."""
+    """Entry point for `bcx gate <name>`. Never propagates an exception."""
     handler = HANDLERS.get(name)
     if handler is None:
         sys.stderr.write("unknown gate '%s' (use: %s)\n" % (name, ", ".join(HANDLERS)))

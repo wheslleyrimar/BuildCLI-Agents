@@ -286,9 +286,9 @@ def cmd_gate(root, args):
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="buildcli",
+        prog="bcx",
         description="BuildCLI Agents runtime — deterministic context, scheduling, enforcement.")
-    p.add_argument("--version", action="version", version="buildcli %s" % __version__)
+    p.add_argument("--version", action="version", version="bcx %s" % __version__)
     sub = p.add_subparsers(dest="cmd")
 
     def add(name, fn, help_text, needs_root=True):
@@ -363,13 +363,13 @@ def main(argv=None):
     try:
         root = paths.find_root()
     except paths.ProjectError as exc:
-        sys.stderr.write("buildcli: %s\n" % exc)
+        sys.stderr.write("bcx: %s\n" % exc)
         return FAIL
 
     try:
         return args.fn(root, args)
     except (paths.ProjectError, worklist.GraphError) as exc:
-        sys.stderr.write("buildcli: %s\n" % exc)
+        sys.stderr.write("bcx: %s\n" % exc)
         return FAIL
     except BrokenPipeError:
         return OK

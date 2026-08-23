@@ -13,7 +13,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from bcli import context, gate, paths, state, verify, worklist  # noqa: E402
+from bcx_lib import context, gate, paths, state, verify, worklist  # noqa: E402
 
 CONTEXT = """# Project Context
 

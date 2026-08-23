@@ -24,7 +24,7 @@ project context.
 2. Check whether `.claude/skills/<name>/SKILL.md` already exists:
    - **Exists** → read it, compare against the current context, refresh whatever went stale.
    - **New** → start from the structure in `_shared/templates/skill-template.md`.
-3. Read the `[band:<band>]` block from `.buildcli/context.md`.
+3. Load the band: `.buildcli/runtime/bcx band <band>`.
 4. Open two or three representative source files in that band and extract the patterns that are
    actually in use: naming, error handling, auth guards, test layout, module boundaries.
 5. Write the skill:

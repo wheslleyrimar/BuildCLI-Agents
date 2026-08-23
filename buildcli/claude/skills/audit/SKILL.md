@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Check the implementation against the brief's acceptance criteria. Green/amber/red per criterion. Reads .buildcli/active automatically.
+description: Check the implementation against the brief's acceptance criteria. Green/amber/red per criterion. Reads .prism/active automatically.
 ---
 
 # Audit
@@ -25,7 +25,7 @@ as the rest of the pipeline.
    - `.buildcli/active` missing → stop, ask the user to run `brief` first.
 2. Read `brief.md` and extract the complete **Acceptance Criteria** list.
 3. Read the band tags in `worklist.md` to learn which bands this work touched.
-4. For each of those bands — and only those — read the matching `[band:<name>]` block from `.buildcli/context.md`.
+4. For each of those bands — and only those — load it with `bcx band <name>`.
 5. Collect the changed files:
    - `git diff --name-only HEAD` for uncommitted work.
    - Or, if `brief.md` carries a `<!-- created: YYYY-MM-DD -->` header, `git log --since` to find the relevant commits.
@@ -34,7 +34,11 @@ as the rest of the pipeline.
    - Find the behavior in the changed code.
    - Look for a test that exercises it.
    - Assign ✅ green (implemented and tested), ⚠️ amber (implemented, untested), ❌ red (not found).
-8. Compare the quality gates from `shape.md` against real test results where they are available.
+8. Run the suite and compare the quality gates from `shape.md` against the real result:
+   ```bash
+   bcx verify --json
+   ```
+   Report what it returns. A gate asserted without a run is not a gate.
 9. Write the report to `blueprints/<kind>/<slug>/audit.md`.
 10. Return the report inline plus the saved path.
 
@@ -76,7 +80,8 @@ as the rest of the pipeline.
 ## Rules
 
 - Never load `context.md` whole. Only the bands this blueprint actually touched.
-- Do not run the test suite here. Read test files and judge whether the criterion is covered.
+- Judge each criterion by reading the code and its tests; use `bcx verify` for the gate
+  results, not to decide whether an individual criterion is satisfied.
 - Amber is not failure. It means the behavior works and the test is missing.
 - If the git history is ambiguous, ask which files to audit rather than guessing.
 - Always save `audit.md`. An all-green record is still worth keeping.

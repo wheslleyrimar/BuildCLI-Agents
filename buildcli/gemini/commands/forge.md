@@ -14,7 +14,7 @@ $ARGUMENTS
 
 1. Parse the skill name and band. Band omitted → infer from the name, or ask.
 2. Existing `.gemini/skills/<name>/SKILL.md` → read it and refresh what went stale. New → start from `_shared/templates/skill-template.md`.
-3. Read the `[band:<band>]` block from `.buildcli/context.md`.
+3. Load the band: `.buildcli/runtime/bcx band <band>`.
 4. Open two or three representative source files in that band and extract the patterns actually in use: naming, error handling, auth guards, test layout.
 5. Write purpose, concrete triggers, the exact band to load, a workflow that names real paths, constraints, and one realistic example.
 6. Save the file. Register it in `GEMINI.md` if it is not already listed.

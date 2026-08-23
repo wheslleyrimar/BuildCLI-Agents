@@ -24,10 +24,10 @@ applies. Three levels, each additive:
 
 ## Steps
 
-1. Confirm the runtime is present at `.buildcli/runtime/buildcli`. Missing → tell the user to
+1. Confirm the runtime is present at `.buildcli/runtime/bcx`. Missing → tell the user to
    re-run the bootstrap script; the gates cannot work without it.
-2. Read `.buildcli/context.md` — via `buildcli band verify` and `buildcli header`, not by opening
-   the file — and extract:
+2. Read the context through the runtime — `.buildcli/runtime/bcx band verify` and `.buildcli/runtime/bcx header`, never by
+   opening the file — and extract:
    - the test command from `[band:verify]`
    - the source directories per band, from the Stack and Architecture blocks
 3. Read any existing `.claude/settings.json`. Merge into it; never overwrite it.
@@ -55,7 +55,7 @@ applies. Three levels, each additive:
 6. Write the hooks into `.claude/settings.json` (see below).
 7. Create `.buildcli/journal/` with a `.gitkeep` and a `.gitignore` that keeps the directory and
    ignores `*.log`.
-8. Run `buildcli doctor` and report what it says.
+8. Run `bcx doctor` and report what it says.
 9. Return: files touched, the level applied, and anything the user must decide.
 
 ## settings.json — with `--enforce`
@@ -64,7 +64,7 @@ applies. Three levels, each additive:
 {
   "permissions": {
     "allow": [
-      "Bash(.buildcli/runtime/buildcli *)",
+      "Bash(.buildcli/runtime/bcx *)",
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git status)",
@@ -76,21 +76,21 @@ applies. Three levels, each additive:
     "PreToolUse": [
       {
         "matcher": "Read",
-        "hooks": [{ "type": "command", "command": ".buildcli/runtime/buildcli gate pre-read" }]
+        "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-read" }]
       },
       {
         "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{ "type": "command", "command": ".buildcli/runtime/buildcli gate pre-write" }]
+        "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-write" }]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|Bash",
-        "hooks": [{ "type": "command", "command": ".buildcli/runtime/buildcli gate post" }]
+        "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate post" }]
       }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": ".buildcli/runtime/buildcli gate stop" }] }
+      { "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate stop" }] }
     ]
   }
 }
@@ -100,13 +100,13 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
 
 ## What each gate does
 
-- **`pre-read`** — blocks a raw `Read` of `.buildcli/context.md` and points at `buildcli band <name>`.
+- **`pre-read`** — blocks a raw `Read` of `.buildcli/context.md` and points at `bcx band <name>`.
   This is what makes band scoping real: the whole file cannot be loaded.
-- **`pre-write`** — while exactly one unit is claimed (`buildcli claim <id>`), blocks writes to paths
+- **`pre-write`** — while exactly one unit is claimed (`bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
   and root config stay editable.
 - **`post`** — appends to `.buildcli/journal/session.log`.
-- **`stop`** — journals the session end, and runs `buildcli verify` when `verify_on_stop` is true.
+- **`stop`** — journals the session end, and runs `bcx verify` when `verify_on_stop` is true.
 
 Every gate fails open. Malformed input, a missing map, an internal error — the call is allowed. A
 harness that breaks the session on its own bug is worse than no harness.

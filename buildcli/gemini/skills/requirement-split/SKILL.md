@@ -14,7 +14,7 @@ brief right now would bury the ambiguity instead of resolving it.
 
 Read only:
 
-1. The Metadata, Stack, and Architecture blocks from `.buildcli/context.md`
+1. The shared header — Metadata, Stack, Architecture — via `.buildcli/runtime/bcx header`
 2. Any existing `brief.md` in the active blueprint
 
 ## Workflow

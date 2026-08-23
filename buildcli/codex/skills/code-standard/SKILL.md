@@ -13,7 +13,7 @@ Any implementation task where the change needs to arrive with proof that it work
 
 Read only:
 
-1. The Engineering Standards block from `.buildcli/context.md`
+1. The shared header, which carries the Engineering Standards, via `.buildcli/runtime/bcx header`
 2. The band that owns the code you are changing
 3. The files in scope
 

@@ -20,7 +20,7 @@ $ARGUMENTS
    - migration / model / query → `[band:store]`
    - test file → `[band:verify]`
    - pipeline / infra / env config → `[band:delivery]`
-4. Read only that band from `.buildcli/context.md`.
+4. Load only that band: `.buildcli/runtime/bcx band <name>`. Never the whole file.
 5. Read the affected file(s) and no more.
 6. State the root cause in one sentence before changing anything.
 7. Apply the minimal fix. Run the relevant tests.

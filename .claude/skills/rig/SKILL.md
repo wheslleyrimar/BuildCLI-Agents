@@ -7,55 +7,66 @@ description: Wire the Claude Code harness into this project — hooks, band-scop
 
 ## Arguments
 
-(optional) --minimal for hooks only, --full for hooks + permissions + scripts
+(optional) --minimal (journal only) | --full (default: journal + permissions) | --enforce (adds the blocking gates)
 
 ## Output
 
-.claude/settings.json  |  .buildcli/journal/  |  .buildcli/hooks/session-end.sh.
+.claude/settings.json | .buildcli/bands.json | .buildcli/enforce.json | .buildcli/journal/.
 
 ## Goal
 
-Make every agent session in this project:
+Turn the band rule from a convention the model is asked to follow into a constraint the runtime
+applies. Three levels, each additive:
 
-- **Recorded** — file changes appended to `.buildcli/journal/session.log`
-- **Fenced** — permissions scoped to what the band skills genuinely need
-- **Closed out** — a session-end hook that runs the checks before the session disappears
+| Level | What it does |
+|---|---|
+| `--minimal` | journals every edit |
+| `--full` | journal + scoped permissions (default) |
+| `--enforce` | the above, plus `PreToolUse` gates that **block** out-of-band reads and writes |
 
 ## Steps
 
-1. Read `.buildcli/context.md` and extract:
-   - the test command, from `[band:verify]` (e.g. `npm test`, `pytest`, `go test ./...`)
+1. Confirm the runtime is present at `.buildcli/runtime/bcx`. Missing → tell the user to
+   re-run the bootstrap script; the gates cannot work without it.
+2. Read the context through the runtime — `.buildcli/runtime/bcx band verify` and `.buildcli/runtime/bcx header`, never by
+   opening the file — and extract:
+   - the test command from `[band:verify]`
    - the source directories per band, from the Stack and Architecture blocks
-   - the CI gate criteria, from `[band:verify]`
-2. Read any existing `.claude/settings.json`. Merge into it — never overwrite it.
-3. Write `.claude/settings.json` with:
-
-   **Hooks**
-   - `PostToolUse` on `Write|Edit|MultiEdit` → append an entry to `.buildcli/journal/session.log`
-   - `PostToolUse` on `Bash` → log commands matching `test|lint|build`
-   - `Stop` → run `.buildcli/hooks/session-end.sh` when it exists
-
-   **Permissions (`--full` only)**
-   - Allow `Bash(git *)`, the test command, the lint command
-   - Allow `Read(**)` and `Edit(<src-dirs>/**)`
-   - Band-scoped edit rules — service → `src/api/**`, interface → `src/components/**`, and so on
-
-4. Create `.buildcli/journal/` with a `.gitkeep`, plus a `.gitignore` that keeps the directory and ignores `*.log`.
-5. Create `.buildcli/hooks/session-end.sh`:
-   ```bash
-   #!/usr/bin/env bash
-   # Runs at the end of every Claude Code session.
-   # Extend with: test run, lint check, commit prompt.
-   echo "$(date '+%Y-%m-%d %H:%M:%S') | STOP   | session ended" >> .buildcli/journal/session.log
+3. Read any existing `.claude/settings.json`. Merge into it; never overwrite it.
+4. Write `.buildcli/bands.json` — the band path map the write gate reads. Derive the globs from
+   the real directory layout, and show them to the user for confirmation. A band with no entry is
+   simply not enforced.
+   ```json
+   {
+     "service":   ["src/api/**", "src/services/**"],
+     "interface": ["src/components/**", "src/pages/**"],
+     "store":     ["migrations/**", "src/models/**"],
+     "verify":    ["tests/**", "**/*.test.*"],
+     "delivery":  [".github/workflows/**", "Dockerfile", "infra/**"]
+   }
    ```
-6. Return: paths touched, permissions configured, anything the user must do by hand.
+5. Write `.buildcli/enforce.json` so the gates can be tuned without editing `settings.json`:
+   ```json
+   {
+     "enabled": true,
+     "context_gate": true,
+     "write_gate": true,
+     "verify_on_stop": false
+   }
+   ```
+6. Write the hooks into `.claude/settings.json` (see below).
+7. Create `.buildcli/journal/` with a `.gitkeep` and a `.gitignore` that keeps the directory and
+   ignores `*.log`.
+8. Run `bcx doctor` and report what it says.
+9. Return: files touched, the level applied, and anything the user must decide.
 
-## settings.json shape
+## settings.json — with `--enforce`
 
 ```json
 {
   "permissions": {
     "allow": [
+      "Bash(.buildcli/runtime/bcx *)",
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git status)",
@@ -64,41 +75,67 @@ Make every agent session in this project:
     ]
   },
   "hooks": {
-    "PostToolUse": [
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-read" }]
+      },
       {
         "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{
-          "type": "command",
-          "command": "mkdir -p .buildcli/journal && echo \"$(date '+%Y-%m-%d %H:%M:%S') | EDIT   | $CLAUDE_TOOL_INPUT_FILE_PATH\" >> .buildcli/journal/session.log 2>/dev/null || true"
-        }]
+        "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-write" }]
       }
     ],
-    "Stop": [{
-      "hooks": [{
-        "type": "command",
-        "command": "[ -f .buildcli/hooks/session-end.sh ] && bash .buildcli/hooks/session-end.sh || true"
-      }]
-    }]
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate post" }]
+      }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate stop" }] }
+    ]
   }
 }
 ```
 
-## Journal format (.buildcli/journal/session.log)
+Without `--enforce`, omit the `PreToolUse` block and keep the rest.
+
+## What each gate does
+
+- **`pre-read`** — blocks a raw `Read` of `.buildcli/context.md` and points at `bcx band <name>`.
+  This is what makes band scoping real: the whole file cannot be loaded.
+- **`pre-write`** — while exactly one unit is claimed (`bcx claim <id>`), blocks writes to paths
+  that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
+  and root config stay editable.
+- **`post`** — appends to `.buildcli/journal/session.log`.
+- **`stop`** — journals the session end, and runs `bcx verify` when `verify_on_stop` is true.
+
+Every gate fails open. Malformed input, a missing map, an internal error — the call is allowed. A
+harness that breaks the session on its own bug is worse than no harness.
+
+## Journal format
 
 ```
-2026-08-22 14:32:01 | EDIT   | src/api/checkout.ts
-2026-08-22 14:32:15 | EDIT   | src/api/checkout.test.ts
-2026-08-22 14:33:00 | STOP   | session ended
+2026-08-22 14:32:01 | EDIT   | Edit      src/api/checkout.ts
+2026-08-22 14:32:40 | UNIT   | W03 -> done (service)
+2026-08-22 14:33:02 | VERIFY | PASS exit=0 :: npm test
+2026-08-22 14:33:05 | STOP   | session ended
 ```
+
+## Turning it off
+
+`.buildcli/enforce.json` is the switch — set `enabled: false` to disable every gate without
+touching `settings.json`, or turn off `context_gate` / `write_gate` individually.
 
 ## Re-running
 
-Safe at any time. It merges with whatever is already in `settings.json` and never drops hand-written
-config. Run `--full` on top of a `--minimal` base to layer the band-scoped permissions in later.
+Safe at any time. Merges with existing config and never drops hand-written entries. Run `--enforce`
+on top of a `--full` base to add the gates later.
 
 ## Rules
 
 - Never add a `deny` rule over a path a band skill legitimately needs.
-- Test command still `NEEDS CLARIFICATION` → skip the Stop hook and say why.
-- Permissions are additive. Append; do not replace.
-- Claude Code only. Codex and Gemini do not read `settings.json`.
+- The write gate only fires while a single unit is claimed. Ambiguity means no enforcement, by design.
+- Test command still `NEEDS CLARIFICATION` → leave `verify_on_stop` false and say why.
+- Permissions are additive. Append; never replace.
+- Claude Code only. Codex, Gemini, and Copilot use the runtime, but have no blocking hooks.

@@ -34,6 +34,21 @@ Navigation:
 - `/focus`  → move the active blueprint pointer
 - `/patch`  → minimal defect fix; add --trace for a defect blueprint
 
+Runtime (always prefer it over reading state files by hand):
+- `.buildcli/runtime/bcx band <name>`   — load exactly one context band
+- `.buildcli/runtime/bcx header`        — the shared header, without any band
+- `.buildcli/runtime/bcx active [path]` — read or move the active blueprint pointer
+- `.buildcli/runtime/bcx next`          — units ready to start, grouped by band
+- `.buildcli/runtime/bcx graph`         — dependency graph, critical path, cycle report
+- `.buildcli/runtime/bcx claim|done|block <id>` — unit state transitions
+- `.buildcli/runtime/bcx verify`        — run the project's test command
+- `.buildcli/runtime/bcx status --json` — pipeline snapshot
+- `.buildcli/runtime/bcx doctor`        — validate context, graph, and configuration
+
+Invoke it by that path, not as a bare `bcx` — it is project-local and not on PATH.
+It needs python3. Blocking enforcement hooks are Claude Code only; here the runtime
+gives you deterministic band extraction, real scheduling, and executable verification.
+
 Shared state:
 - `.buildcli/context.md`   — project context, split into [band:*] blocks
 - `.buildcli/active`       — path to the active blueprint directory

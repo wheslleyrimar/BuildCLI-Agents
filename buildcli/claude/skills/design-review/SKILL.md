@@ -14,7 +14,7 @@ two architectures, accepting a tradeoff, or deciding whether a risk is worth car
 
 Read only:
 
-1. The Architecture and Engineering Standards blocks from `.buildcli/context.md`
+1. The shared header — Architecture and Engineering Standards — via `.buildcli/runtime/bcx header`
 2. The bands the decision actually touches
 3. `shape.md` from the active blueprint, if one exists
 

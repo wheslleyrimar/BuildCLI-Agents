@@ -1,26 +1,26 @@
 # Runtime
 
-`buildcli` is the executable half of the framework. It exists so three things stop being requests
+`bcx` is the executable half of the framework. It exists so three things stop being requests
 the model may ignore and start being mechanisms:
 
 | Concern | Without the runtime | With it |
 |---|---|---|
-| Band scoping | a skill asks the model to read one block | `buildcli band <name>` returns exactly one block, and a hook blocks the raw read |
-| Scheduling | the model infers order from markdown | `buildcli next` computes it from the graph, and refuses to schedule a cycle |
-| Verification | `audit` reads test files and judges | `buildcli verify` runs the suite and reports the exit code |
+| Band scoping | a skill asks the model to read one block | `bcx band <name>` returns exactly one block, and a hook blocks the raw read |
+| Scheduling | the model infers order from markdown | `bcx next` computes it from the graph, and refuses to schedule a cycle |
+| Verification | `audit` reads test files and judges | `bcx verify` runs the suite and reports the exit code |
 
 Python 3, standard library only. No build, no install, no dependencies. Bootstrap copies it to
-`.buildcli/runtime/buildcli` in the target project.
+`.buildcli/runtime/bcx` in the target project.
 
 ## Commands
 
 ### Context
 
 ```bash
-buildcli band service          # print exactly that band
-buildcli band service --check  # exit 1 if the band is unpopulated
-buildcli header                # the shared header, with no band in it
-buildcli bands [--json]        # every band, populated or empty, with word counts
+bcx band service          # print exactly that band
+bcx band service --check  # exit 1 if the band is unpopulated
+bcx header                # the shared header, with no band in it
+bcx bands [--json]        # every band, populated or empty, with word counts
 ```
 
 `band` is the only supported way to read project context. There is no path through the runtime
@@ -29,20 +29,20 @@ that returns the whole file.
 ### State
 
 ```bash
-buildcli active                                  # print the active blueprint
-buildcli active blueprints/features/checkout     # move the pointer (validates brief.md exists)
-buildcli active checkout                         # bare slug also resolves
-buildcli blueprints [--json]                     # every blueprint with its stage
+bcx active                                  # print the active blueprint
+bcx active blueprints/features/checkout     # move the pointer (validates brief.md exists)
+bcx active checkout                         # bare slug also resolves
+bcx blueprints [--json]                     # every blueprint with its stage
 ```
 
 ### Scheduling
 
 ```bash
-buildcli graph [--json]        # units, critical path, cycles, structural problems
-buildcli next [--json]         # units ready now, grouped by band
-buildcli claim W03             # mark in progress — this is what scopes the write gate
-buildcli done W03
-buildcli block W03 --reason "waiting on credentials"
+bcx graph [--json]        # units, critical path, cycles, structural problems
+bcx next [--json]         # units ready now, grouped by band
+bcx claim W03             # mark in progress — this is what scopes the write gate
+bcx done W03
+bcx block W03 --reason "waiting on credentials"
 ```
 
 `graph` and `next` exit non-zero when the worklist is not schedulable. `claim` refuses a unit whose
@@ -52,9 +52,9 @@ being exactly one. `--force` overrides both.
 ### Verification
 
 ```bash
-buildcli verify                # run the test command from [band:verify]
-buildcli verify --command "npm test -- --run"
-buildcli verify --json --lines 60
+bcx verify                # run the test command from [band:verify]
+bcx verify --command "npm test -- --run"
+bcx verify --json --lines 60
 ```
 
 The command is discovered from `[band:verify]`, preferring a value written in backticks. Exit code
@@ -63,8 +63,8 @@ mirrors the suite.
 ### Diagnostics
 
 ```bash
-buildcli status [--json]       # stage, unit counts, ready units, band population
-buildcli doctor [--json]       # everything that is structurally wrong, in one list
+bcx status [--json]       # stage, unit counts, ready units, band population
+bcx doctor [--json]       # everything that is structurally wrong, in one list
 ```
 
 `doctor` checks: all five bands declared and populated, bands within the ~300 word budget, an active
@@ -74,7 +74,7 @@ command.
 ### Gates
 
 ```bash
-buildcli gate pre-read | pre-write | post | stop
+bcx gate pre-read | pre-write | post | stop
 ```
 
 Hook handlers. They read the event JSON on stdin and communicate by exit code: `0` allows, `2`

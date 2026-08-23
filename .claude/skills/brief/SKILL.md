@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Write a requirements brief with testable acceptance criteria and a relay block. Creates blueprints/<kind>/<slug>/brief.md and moves .buildcli/active.
+description: Write a requirements brief with testable acceptance criteria and a relay block. Creates blueprints/<kind>/<slug>/brief.md and moves .prism/active.
 ---
 
 # Brief
@@ -28,7 +28,8 @@ open the file, read nothing else, and proceed straight to `shape`.
    - Feature: `blueprints/features/<slug>/`
    - Defect:  `blueprints/defects/<slug>/`
 4. Create the directory if it does not exist.
-5. Read only the header blocks of `.buildcli/context.md` — Metadata, Stack, Architecture. Skip the bands.
+5. Load the shared header with `.buildcli/runtime/bcx header` — Metadata, Stack, Architecture. It contains no
+   band, by construction.
 6. Work out:
    - **Actors** — who triggers this, who is affected
    - **Journeys** — the primary path, the alternatives, the failures
@@ -40,7 +41,7 @@ open the file, read nothing else, and proceed straight to `shape`.
    - **Out of scope** — what this brief deliberately leaves alone
    - **Relay block** — agent assignments plus a readiness signal
 8. Save `brief.md` inside the blueprint directory.
-9. Point the runtime at it: `buildcli active blueprints/features/<slug>` — it validates the directory and writes the pointer.
+9. Point the runtime at it: `bcx active blueprints/features/<slug>` — it validates the directory and writes the pointer.
 10. Return: brief path, confirmation that `.buildcli/active` moved, readiness for `shape`.
 
 ## The active pointer

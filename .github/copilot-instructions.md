@@ -1,6 +1,18 @@
 # Copilot Instructions
 
 <!-- buildcli:autoload:start -->
+## Runtime
+
+A project-local executable at `.buildcli/runtime/bcx` (needs python3). Prefer it over
+reading state files by hand:
+
+- `.buildcli/runtime/bcx band <name>` — load exactly one context band
+- `.buildcli/runtime/bcx next` — units ready to start, grouped by band
+- `.buildcli/runtime/bcx graph` — dependency graph and cycle report
+- `.buildcli/runtime/bcx claim|done|block <id>` — unit state transitions
+- `.buildcli/runtime/bcx verify` — run the project's test command
+- `.buildcli/runtime/bcx doctor` — validate context, graph, and configuration
+
 ## Shared state
 
 Every agent on this project reads and writes the same files:

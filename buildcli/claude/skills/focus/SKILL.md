@@ -1,6 +1,6 @@
 ---
 name: focus
-description: Move the active blueprint pointer without re-running brief. Lists blueprints or switches to one. Updates .buildcli/active.
+description: Move the active blueprint pointer without re-running brief. Lists blueprints or switches to one. Updates .prism/active.
 ---
 
 # Focus
@@ -35,7 +35,7 @@ started last week.
    - Argument already carries a `features/` or `defects/` prefix → use it directly.
    - Nothing matches → list what exists and ask again.
 2. Confirm `brief.md` is present in the target directory.
-3. Run `buildcli active <path>` — it validates and writes the pointer.
+3. Run `bcx active <path>` — it validates and writes the pointer.
 4. Read the blueprint's name and stage; confirm the move.
 
 ## Output — list mode

@@ -22,7 +22,7 @@ as the rest of the pipeline.
    - `.buildcli/active` missing → stop, ask the user to run `/brief` first.
 2. Read `brief.md` and extract the complete **Acceptance Criteria** list.
 3. Read the band tags in `worklist.md` to learn which bands this work touched.
-4. For each of those bands — and only those — load it with `buildcli band <name>`.
+4. For each of those bands — and only those — load it with `bcx band <name>`.
 5. Collect the changed files:
    - `git diff --name-only HEAD` for uncommitted work.
    - Or, if `brief.md` carries a `<!-- created: YYYY-MM-DD -->` header, `git log --since` to find the relevant commits.
@@ -33,7 +33,7 @@ as the rest of the pipeline.
    - Assign ✅ green (implemented and tested), ⚠️ amber (implemented, untested), ❌ red (not found).
 8. Run the suite and compare the quality gates from `shape.md` against the real result:
    ```bash
-   buildcli verify --json
+   bcx verify --json
    ```
    Report what it returns. A gate asserted without a run is not a gate.
 9. Write the report to `blueprints/<kind>/<slug>/audit.md`.
@@ -77,7 +77,7 @@ as the rest of the pipeline.
 ## Rules
 
 - Never load `context.md` whole. Only the bands this blueprint actually touched.
-- Judge each criterion by reading the code and its tests; use `buildcli verify` for the gate
+- Judge each criterion by reading the code and its tests; use `bcx verify` for the gate
   results, not to decide whether an individual criterion is satisfied.
 - Amber is not failure. It means the behavior works and the test is missing.
 - If the git history is ambiguous, ask which files to audit rather than guessing.

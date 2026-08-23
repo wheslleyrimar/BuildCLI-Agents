@@ -152,25 +152,25 @@ Plus, at any point:
 
 ### 5. The runtime — what makes it a harness, not a convention
 
-A framework of markdown files can only ask. `buildcli`, installed to
-`.buildcli/runtime/buildcli`, can answer and refuse. Python 3, stdlib only, no dependencies.
+A framework of markdown files can only ask. `bcx`, installed to
+`.buildcli/runtime/bcx`, can answer and refuse. Python 3, stdlib only, no dependencies.
 
 ```bash
-buildcli band service     # exactly that band — there is no call that returns the whole file
-buildcli next             # units ready now, grouped by band, computed from the graph
-buildcli graph            # critical path, and a hard error on a dependency cycle
-buildcli claim W03        # scopes the write gate to that unit's band
-buildcli verify           # runs the real test command and reports the real exit code
-buildcli doctor           # every structural problem, in one list
+bcx band service     # exactly that band — there is no call that returns the whole file
+bcx next             # units ready now, grouped by band, computed from the graph
+bcx graph            # critical path, and a hard error on a dependency cycle
+bcx claim W03        # scopes the write gate to that unit's band
+bcx verify           # runs the real test command and reports the real exit code
+bcx doctor           # every structural problem, in one list
 ```
 
 Three things stop being advisory:
 
 | | Before | Now |
 |---|---|---|
-| Band scoping | the skill asks | `buildcli band` returns one block; a hook blocks the raw read |
+| Band scoping | the skill asks | `bcx band` returns one block; a hook blocks the raw read |
 | Scheduling | the model infers order | the runtime computes it, and refuses to schedule a cycle |
-| Verification | `audit` reads test files | `buildcli verify` runs the suite |
+| Verification | `audit` reads test files | `bcx verify` runs the suite |
 
 ### 6. Enforcement (Claude Code)
 

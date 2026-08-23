@@ -23,7 +23,7 @@ def require_active(root):
     active = get_active(root)
     if not active:
         raise paths.ProjectError(
-            "no active blueprint.\nRun the `brief` skill, or `buildcli active <path>`."
+            "no active blueprint.\nRun the `brief` skill, or `bcx active <path>`."
         )
     full = os.path.join(root, active)
     if not os.path.isdir(full):
