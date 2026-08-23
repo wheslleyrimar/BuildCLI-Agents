@@ -12,7 +12,6 @@ description: Move the active blueprint pointer without re-running brief. Lists b
 ## Output
 
 Updated .buildcli/active + confirmation.
-
 ## Goal
 
 Change which blueprint is live — for juggling features in parallel, or picking back up something

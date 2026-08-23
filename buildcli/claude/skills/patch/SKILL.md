@@ -12,7 +12,6 @@ Defect description and/or file path(s). Add --trace to file a defect blueprint a
 ## Output
 
 Code fix + root cause. With --trace: also blueprints/defects/<slug>/brief.md and a moved .buildcli/active.
-
 ## Goal
 
 Diagnose and repair with the least context that can do the job. Load the one band that owns the

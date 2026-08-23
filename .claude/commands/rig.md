@@ -3,6 +3,8 @@ description: Wire the enforcing harness into this project — runtime, blocking 
 arguments: (optional) --minimal (journal only) | --full (default: journal + permissions) | --enforce (adds the blocking gates)
 output: .claude/settings.json | .buildcli/bands.json | .buildcli/enforce.json | .buildcli/journal/
 agent_role: orchestrator (Claude Code only — settings.json and hooks are Claude-specific)
+skill_description: Wire the enforcing harness into this project — runtime, blocking PreToolUse gates, band path map, and the audit journal.
+skill_title: Rig
 ---
 
 ## User Input

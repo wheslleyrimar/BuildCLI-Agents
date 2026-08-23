@@ -12,7 +12,6 @@ Optional band focus (service, interface, store, verify, delivery). Omit to write
 ## Output
 
 .buildcli/context.md — with every [band:<name>] block populated.
-
 ## Goal
 
 Produce an evidence-based project context whose domain bands can each be read on their own.

@@ -2,6 +2,8 @@
 description: Execute a worklist band by band, scheduled by the runtime, with live progress and sub-agent fan-out.
 arguments: (optional) Path to a blueprint directory. Omitted → the runtime reads the active pointer.
 output: Code changes + a build report
+skill_description: Execute a worklist band by band, scheduled by the runtime, with live progress and sub-agent fan-out.
+skill_title: Build
 ---
 
 ## User Input

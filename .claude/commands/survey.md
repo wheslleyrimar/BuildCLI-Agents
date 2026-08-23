@@ -2,6 +2,8 @@
 description: Survey the repository and write the shared project context, split into independently loadable domain bands.
 arguments: Optional band focus (service, interface, store, verify, delivery). Omit to write all bands.
 output: .buildcli/context.md — with every [band:<name>] block populated
+skill_description: Survey the repository and write .buildcli/context.md, split into independently loadable domain bands.
+skill_title: Survey
 ---
 
 ## User Input

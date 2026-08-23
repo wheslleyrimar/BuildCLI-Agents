@@ -12,7 +12,6 @@ description: Break a shape into atomic, dependency-ordered units tagged by band.
 ## Output
 
 blueprints/features/<slug>/worklist.md  (or blueprints/defects/<slug>/worklist.md).
-
 ## Resolving the blueprint
 
 1. Arguments given → treat them as the blueprint directory.

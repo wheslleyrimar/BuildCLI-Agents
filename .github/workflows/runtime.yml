@@ -2,9 +2,9 @@ name: runtime
 
 on:
   push:
-    paths: ["buildcli/runtime/**", ".github/workflows/runtime.yml"]
+    paths: ["buildcli/**", ".github/workflows/runtime.yml"]
   pull_request:
-    paths: ["buildcli/runtime/**", ".github/workflows/runtime.yml"]
+    paths: ["buildcli/**", ".github/workflows/runtime.yml"]
 
 jobs:
   test:
@@ -34,6 +34,16 @@ jobs:
             exit 1
           fi
           echo "stdlib only: confirmed"
+
+  skills-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Claude pipeline skills are generated from their command files.
+      # This is the check that would have caught `.prism/` surviving a rename.
+      - name: Skills match their commands
+        run: python3 buildcli/scripts/generate-skills.py --check
 
   bootstrap:
     runs-on: ubuntu-latest

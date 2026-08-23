@@ -12,7 +12,6 @@ Feature description. Prefix with "defect:" to file it under blueprints/defects/ 
 ## Output
 
 blueprints/features/<slug>/brief.md  (or blueprints/defects/<slug>/brief.md).
-
 ## Goal
 
 Produce a brief complete enough that any agent — Claude, Codex, Gemini, or a sub-agent — can

@@ -3,6 +3,8 @@ description: Write a complete requirements brief with testable acceptance criter
 arguments: Feature description. Prefix with "defect:" to file it under blueprints/defects/ instead of blueprints/features/.
 output: blueprints/features/<slug>/brief.md  (or blueprints/defects/<slug>/brief.md)
 agent_role: brief-writer (analysis-focused agent preferred — Claude or Gemini)
+skill_description: Write a requirements brief with testable acceptance criteria and a relay block. Creates blueprints/<kind>/<slug>/brief.md and moves .buildcli/active.
+skill_title: Brief
 ---
 
 ## User Input

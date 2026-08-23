@@ -2,6 +2,8 @@
 description: Turn an approved brief into a phased technical plan — architecture, data model, milestones, risks, gates.
 arguments: (optional) Path to a blueprint directory or brief.md. Omitted → reads .buildcli/active.
 output: blueprints/features/<slug>/shape.md  (or blueprints/defects/<slug>/shape.md)
+skill_description: Turn an approved brief into a phased technical plan. Reads .buildcli/active automatically. Outputs blueprints/<kind>/<slug>/shape.md.
+skill_title: Shape
 ---
 
 ## User Input

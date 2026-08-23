@@ -12,7 +12,6 @@ description: Check the implementation against the brief's acceptance criteria. G
 ## Output
 
 Audit report — green / amber / red per criterion, saved as audit.md.
-
 ## Goal
 
 Close the loop between what was asked for and what was written. Every acceptance criterion in

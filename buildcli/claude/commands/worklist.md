@@ -2,6 +2,8 @@
 description: Convert a shape into atomic, dependency-ordered execution units, each tagged with the band that owns it.
 arguments: (optional) Path to a blueprint directory. Omitted → reads .buildcli/active.
 output: blueprints/features/<slug>/worklist.md  (or blueprints/defects/<slug>/worklist.md)
+skill_description: Break a shape into atomic, dependency-ordered units tagged by band. Reads .buildcli/active automatically. Outputs blueprints/<kind>/<slug>/worklist.md.
+skill_title: Worklist
 ---
 
 ## User Input

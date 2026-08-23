@@ -2,6 +2,8 @@
 description: Fix a defect on the smallest context footprint possible — one band, the affected files, nothing else.
 arguments: Defect description and/or file path(s). Add --trace to file a defect blueprint alongside the fix.
 output: Code fix + root cause. With --trace: also blueprints/defects/<slug>/brief.md and a moved .buildcli/active.
+skill_description: Fix a defect on the smallest context footprint — one band, the affected files. Add --trace to file a defect blueprint.
+skill_title: Patch
 ---
 
 ## User Input

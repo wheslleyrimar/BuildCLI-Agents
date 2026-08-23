@@ -1,6 +1,6 @@
 ---
 name: build
-description: Execute a worklist band by band with live progress tracking and optional sub-agent fan-out.
+description: Execute a worklist band by band, scheduled by the runtime, with live progress and sub-agent fan-out.
 ---
 
 # Build
@@ -12,7 +12,6 @@ description: Execute a worklist band by band with live progress tracking and opt
 ## Output
 
 Code changes + a build report.
-
 ## Resolving the blueprint
 
 The runtime resolves it. Do not read the pointer file yourself.

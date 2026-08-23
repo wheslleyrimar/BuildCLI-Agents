@@ -12,7 +12,6 @@ description: Turn an approved brief into a phased technical plan. Reads .buildcl
 ## Output
 
 blueprints/features/<slug>/shape.md  (or blueprints/defects/<slug>/shape.md).
-
 ## Resolving the blueprint
 
 1. Arguments given → treat them as the blueprint directory (or the brief file inside it).

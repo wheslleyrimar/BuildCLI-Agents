@@ -2,6 +2,8 @@
 description: Read-only snapshot of the pipeline — active blueprint, stage, unit counts, gates, next step.
 arguments: none
 output: Inline report. No files written.
+skill_description: Read-only pipeline snapshot — active blueprint, stage, unit counts, quality gates, next step. Writes nothing.
+skill_title: Pulse
 ---
 
 ## Goal

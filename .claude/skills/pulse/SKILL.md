@@ -12,7 +12,6 @@ None.
 ## Output
 
 Inline report. No files written.
-
 ## Goal
 
 Answer "where am I?" in one screen. Nothing is written; this is a diagnostic.

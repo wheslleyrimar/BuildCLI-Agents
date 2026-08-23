@@ -12,7 +12,6 @@ Skill name, optionally followed by a band (service|interface|store|verify|delive
 ## Output
 
 .claude/skills/<name>/SKILL.md.
-
 ## Goal
 
 Write a `SKILL.md` that captures what is true about *this* codebase and nothing that a competent

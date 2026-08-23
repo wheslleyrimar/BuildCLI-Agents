@@ -2,6 +2,8 @@
 description: Move the active blueprint pointer without re-running /brief. Lists blueprints, or switches to one by name.
 arguments: (optional) Blueprint slug or path. Omitted → lists everything available.
 output: Updated .buildcli/active + confirmation
+skill_description: Move the active blueprint pointer without re-running brief. Lists blueprints or switches to one. Updates .buildcli/active.
+skill_title: Focus
 ---
 
 ## User Input

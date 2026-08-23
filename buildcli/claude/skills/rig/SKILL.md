@@ -1,6 +1,6 @@
 ---
 name: rig
-description: Wire the Claude Code harness into this project — hooks, band-scoped permissions, and an audit journal in .claude/settings.json.
+description: Wire the enforcing harness into this project — runtime, blocking PreToolUse gates, band path map, and the audit journal.
 ---
 
 # Rig
@@ -12,7 +12,6 @@ description: Wire the Claude Code harness into this project — hooks, band-scop
 ## Output
 
 .claude/settings.json | .buildcli/bands.json | .buildcli/enforce.json | .buildcli/journal/.
-
 ## Goal
 
 Turn the band rule from a convention the model is asked to follow into a constraint the runtime

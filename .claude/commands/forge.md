@@ -2,6 +2,8 @@
 description: Create or refresh a project-specific skill built from this repository's real patterns.
 arguments: Skill name, optionally followed by a band (service|interface|store|verify|delivery|custom). Example: "payments service" or "shadcn-ui interface".
 output: .claude/skills/<name>/SKILL.md
+skill_description: Create or refresh a project-specific skill built from this repository's real patterns. Saves to .claude/skills/<name>/SKILL.md.
+skill_title: Forge
 ---
 
 ## User Input

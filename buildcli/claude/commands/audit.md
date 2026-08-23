@@ -2,6 +2,8 @@
 description: Check the implementation against the brief's acceptance criteria, one verdict per criterion.
 arguments: (optional) Path to a blueprint directory. Omitted → reads .buildcli/active.
 output: Audit report — green / amber / red per criterion, saved as audit.md
+skill_description: Check the implementation against the brief's acceptance criteria. Green/amber/red per criterion. Reads .buildcli/active automatically.
+skill_title: Audit
 ---
 
 ## User Input
