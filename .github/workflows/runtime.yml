@@ -5,6 +5,10 @@ on:
     paths: ["buildcli/**", ".github/workflows/runtime.yml"]
   pull_request:
     paths: ["buildcli/**", ".github/workflows/runtime.yml"]
+  # Path filters mean a push can legitimately produce no run — including the
+  # push that creates the repository. Keep a manual trigger so the suite can
+  # always be exercised on demand.
+  workflow_dispatch:
 
 jobs:
   test:
