@@ -1,6 +1,6 @@
 ---
 name: worklist
-description: Break a shape into atomic, dependency-ordered units tagged by band. Reads .prism/active automatically. Outputs blueprints/<kind>/<slug>/worklist.md.
+description: Break a shape into atomic, dependency-ordered units tagged by band. Reads .buildcli/active automatically. Outputs blueprints/<kind>/<slug>/worklist.md.
 ---
 
 # Worklist

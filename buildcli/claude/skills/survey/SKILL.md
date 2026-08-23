@@ -1,6 +1,6 @@
 ---
 name: survey
-description: Survey the repository and write .prism/context.md, split into independently loadable domain bands.
+description: Survey the repository and write .buildcli/context.md, split into independently loadable domain bands.
 ---
 
 # Survey

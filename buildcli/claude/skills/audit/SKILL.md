@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Check the implementation against the brief's acceptance criteria. Green/amber/red per criterion. Reads .prism/active automatically.
+description: Check the implementation against the brief's acceptance criteria. Green/amber/red per criterion. Reads .buildcli/active automatically.
 ---
 
 # Audit

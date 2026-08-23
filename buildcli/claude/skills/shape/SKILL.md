@@ -1,6 +1,6 @@
 ---
 name: shape
-description: Turn an approved brief into a phased technical plan. Reads .prism/active automatically. Outputs blueprints/<kind>/<slug>/shape.md.
+description: Turn an approved brief into a phased technical plan. Reads .buildcli/active automatically. Outputs blueprints/<kind>/<slug>/shape.md.
 ---
 
 # Shape

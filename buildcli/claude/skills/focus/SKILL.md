@@ -1,6 +1,6 @@
 ---
 name: focus
-description: Move the active blueprint pointer without re-running brief. Lists blueprints or switches to one. Updates .prism/active.
+description: Move the active blueprint pointer without re-running brief. Lists blueprints or switches to one. Updates .buildcli/active.
 ---
 
 # Focus

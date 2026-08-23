@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Write a requirements brief with testable acceptance criteria and a relay block. Creates blueprints/<kind>/<slug>/brief.md and moves .prism/active.
+description: Write a requirements brief with testable acceptance criteria and a relay block. Creates blueprints/<kind>/<slug>/brief.md and moves .buildcli/active.
 ---
 
 # Brief
