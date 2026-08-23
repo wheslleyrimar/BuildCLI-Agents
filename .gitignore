@@ -1,0 +1,10 @@
+.DS_Store
+
+# Written by bootstrap into a target project — these belong to the project, not the kit.
+# The self-hosted .claude/ at this repo root is committed on purpose; the rest are not.
+.codex/
+.gemini/
+.copilot/
+.github/skills/
+.buildcli/
+blueprints/

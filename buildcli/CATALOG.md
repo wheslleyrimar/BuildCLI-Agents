@@ -1,0 +1,105 @@
+# Catalog
+
+Everything BuildCLI Agents installs, and what each piece does.
+
+## Layout
+
+```
+buildcli/
+├── claude/{commands,skills}    → installed to .claude/
+├── codex/{commands,skills}     → installed to .codex/
+├── gemini/{commands,skills}    → installed to .gemini/
+├── copilot/commands            → installed to .copilot/commands/
+├── copilot/skills              → installed to .github/skills/
+├── _shared/templates/
+└── scripts/bootstrap.sh
+```
+
+## Pipeline
+
+| File          | Invoke as    | Input                       | Output                                 | When |
+|---------------|--------------|-----------------------------|----------------------------------------|------|
+| `survey.md`   | `/survey`    | the repository              | `.buildcli/context.md`                    | once per project, and whenever the stack shifts |
+| `brief.md`    | `/brief`     | a feature description       | `blueprints/<kind>/<slug>/brief.md`    | once per piece of work |
+| `shape.md`    | `/shape`     | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/shape.md`    | after brief |
+| `worklist.md` | `/worklist`  | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/worklist.md` | after shape |
+| `build.md`    | `/build`     | auto, from `.buildcli/active`  | code changes + a build report          | after worklist |
+| `audit.md`    | `/audit`     | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/audit.md`    | after build |
+| `patch.md`    | `/patch`     | a defect description        | a fix + root cause                     | per defect; `--trace` files a blueprint |
+| `forge.md`    | `/forge`     | skill name + band           | `<agent>/skills/<name>/SKILL.md`       | when a project pattern deserves a skill |
+
+## Navigation and ops
+
+| File        | Invoke as  | Input                  | Output                                          | When |
+|-------------|------------|------------------------|-------------------------------------------------|------|
+| `pulse.md`  | `/pulse`   | none                   | inline snapshot, nothing written                | any time |
+| `focus.md`  | `/focus`   | a blueprint slug       | updated `.buildcli/active`                         | switching between blueprints |
+| `rig.md`    | `/rig`     | `--minimal` / `--full` | `.claude/settings.json` + `.buildcli/journal/`     | once per project (Claude Code only) |
+
+## Band skills
+
+Each one reads exactly one block of `.buildcli/context.md` and refuses the rest.
+
+| Skill       | Band               | Owns |
+|-------------|--------------------|------|
+| `service`   | `[band:service]`   | endpoints, business logic, auth, outbound integrations |
+| `interface` | `[band:interface]` | components, pages, client state, routing, styling |
+| `store`     | `[band:store]`     | schemas, migrations, models, queries, caching |
+| `verify`    | `[band:verify]`    | unit, integration, and E2E tests; coverage |
+| `delivery`  | `[band:delivery]`  | CI/CD, deploys, environments, secrets, monitoring |
+
+## Agent specialties
+
+| Skill                | Agent  | Purpose |
+|----------------------|--------|---------|
+| `design-review`      | Claude | architecture tradeoffs and risk, before implementation |
+| `code-standard`      | Codex  | implementation quality gates and validation evidence |
+| `requirement-split`  | Gemini | break a broad request into prioritized requirements |
+
+## The active pointer
+
+Most commands read `.buildcli/active` on their own — no path argument needed.
+
+```
+.buildcli/active        ← one line: blueprints/features/checkout-flow
+
+blueprints/
+├── features/
+│   └── checkout-flow/
+│       ├── brief.md
+│       ├── shape.md
+│       ├── worklist.md
+│       └── audit.md
+└── defects/
+    └── payment-safari/
+        ├── brief.md     (written by /patch --trace)
+        └── audit.md
+```
+
+Move it with `/focus <slug>`, or run `/focus` with no argument to see everything.
+
+## Multi-agent relay
+
+Every `brief.md` ends with a relay block:
+
+```
+## Relay
+- Brief owner: Gemini
+- Shape agent: Claude
+- Build agent: Codex
+- Brief confidence: high
+- Blocking questions: none
+- Ready for shape: yes
+```
+
+Any agent can open the project, read `.buildcli/active`, and continue. Nothing needs re-explaining
+in chat, because nothing important lives in chat.
+
+## Templates
+
+| File                        | Used by |
+|-----------------------------|---------|
+| `context-template.md`       | bootstrap, as the initial `.buildcli/context.md` |
+| `skill-template.md`         | `/forge`, as the skeleton for a new skill |
+| `command-template.md`       | authoring a new command file |
+| `brief-template.md`         | `/brief`, as the output shape |
