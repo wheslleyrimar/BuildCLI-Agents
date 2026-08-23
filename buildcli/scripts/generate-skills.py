@@ -8,8 +8,8 @@ references rewritten as bare skill names.
 
 There is deliberately no table of descriptions in here. Each command carries its
 own `skill_description` and `skill_title` in frontmatter, because a second copy
-of that text is a second thing to forget when something is renamed — which is
-exactly how `.prism/` survived a rename once already.
+of that text is a second thing to forget when something is renamed — and one
+such copy did once keep a dead path alive through a project-wide rename.
 
 Usage:
     python3 buildcli/scripts/generate-skills.py            # write the skills
