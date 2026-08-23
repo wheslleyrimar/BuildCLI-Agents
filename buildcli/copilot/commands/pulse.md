@@ -10,7 +10,7 @@ usage: Paste this prompt into Copilot Chat
 Show me where the current work stands.
 
 Steps:
-1. Run `bcx active`. Missing → say "No active blueprint. Run the brief prompt to start." and stop.
+1. Run `.buildcli/runtime/bcx active`. Missing → say "No active blueprint. Run the brief prompt to start." and stop.
 2. Load whichever of `brief.md`, `shape.md`, `worklist.md`, `audit.md` exist there.
 3. Infer the stage: brief → shape → worklist → build → audit.
 4. Count unit states from `worklist.md`, grouped by band.

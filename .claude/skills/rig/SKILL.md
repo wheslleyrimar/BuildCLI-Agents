@@ -57,7 +57,7 @@ applies. Three levels, each additive:
 6. Write the hooks into `.claude/settings.json` (see below).
 7. Create `.buildcli/journal/` with a `.gitkeep` and a `.gitignore` that keeps the directory and
    ignores `*.log`.
-8. Run `bcx doctor` and report what it says.
+8. Run `.buildcli/runtime/bcx doctor` and report what it says.
 9. Return: files touched, the level applied, and anything the user must decide.
 
 ## settings.json — with `--enforce`
@@ -102,13 +102,13 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
 
 ## What each gate does
 
-- **`pre-read`** — blocks a raw `Read` of `.buildcli/context.md` and points at `bcx band <name>`.
+- **`pre-read`** — blocks a raw `Read` of `.buildcli/context.md` and points at `.buildcli/runtime/bcx band <name>`.
   This is what makes band scoping real: the whole file cannot be loaded.
-- **`pre-write`** — while exactly one unit is claimed (`bcx claim <id>`), blocks writes to paths
+- **`pre-write`** — while exactly one unit is claimed (`.buildcli/runtime/bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
   and root config stay editable.
 - **`post`** — appends to `.buildcli/journal/session.log`.
-- **`stop`** — journals the session end, and runs `bcx verify` when `verify_on_stop` is true.
+- **`stop`** — journals the session end, and runs `.buildcli/runtime/bcx verify` when `verify_on_stop` is true.
 
 Every gate fails open. Malformed input, a missing map, an internal error — the call is allowed. A
 harness that breaks the session on its own bug is worse than no harness.
@@ -120,6 +120,15 @@ harness that breaks the session on its own bug is worse than no harness.
 2026-08-22 14:32:40 | UNIT   | W03 -> done (service)
 2026-08-22 14:33:02 | VERIFY | PASS exit=0 :: npm test
 2026-08-22 14:33:05 | STOP   | session ended
+```
+
+## For the human
+
+The hooks and skills all use `.buildcli/runtime/bcx`. Offer the user the shim so they can type
+`bcx` themselves:
+
+```bash
+.buildcli/runtime/bcx shim --install
 ```
 
 ## Turning it off

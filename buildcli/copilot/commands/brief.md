@@ -17,7 +17,7 @@ Steps:
 5. Write acceptance criteria as Given / When / Then. Each must be testable on its own.
 6. Add numbered assumptions, at most three `NEEDS CLARIFICATION` questions, and an out-of-scope list.
 7. Close with a relay block: brief owner, shape agent, build agent, confidence, blocking questions, ready-for-shape.
-8. Save `brief.md` and run `bcx active blueprints/<kind>/<slug>` to move the pointer.
+8. Save `brief.md` and run `.buildcli/runtime/bcx active blueprints/<kind>/<slug>` to move the pointer.
 
 Rules:
 - Always update `.buildcli/active`. Every downstream prompt reads it.

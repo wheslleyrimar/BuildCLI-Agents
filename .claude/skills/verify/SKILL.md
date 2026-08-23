@@ -30,7 +30,7 @@ Read only:
 
 1. The `[band:verify]` block, via the runtime:
    ```bash
-   bcx band verify
+   .buildcli/runtime/bcx band verify
    ```
    Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The source file(s) under test
@@ -45,7 +45,7 @@ Do not open unrelated services, components, or delivery config unless the task e
 
 ## Workflow
 
-1. Run `bcx band verify` to load the band. Nothing else from the context file.
+1. Run `.buildcli/runtime/bcx band verify` to load the band. Nothing else from the context file.
 2. Read the source file(s) to understand inputs, outputs, and where they break.
 3. Read the existing tests so you extend them rather than duplicate them.
 4. Write focused, deterministic tests: the happy path plus the edge cases that actually bite.

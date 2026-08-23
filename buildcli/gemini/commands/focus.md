@@ -23,7 +23,7 @@ $ARGUMENTS
 1. Resolve the slug against `blueprints/features/<slug>/`, then `blueprints/defects/<slug>/`.
    A path with a `features/` or `defects/` prefix is used directly. No match → list and ask again.
 2. Confirm `brief.md` exists there.
-3. Run `bcx active <path>` — it validates and writes the pointer.
+3. Run `.buildcli/runtime/bcx active <path>` — it validates and writes the pointer.
 4. Print the blueprint name, its stage, and the next step.
 
 ## Rules

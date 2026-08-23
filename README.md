@@ -155,6 +155,10 @@ Plus, at any point:
 A framework of markdown files can only ask. `bcx`, installed to
 `.buildcli/runtime/bcx`, can answer and refuse. Python 3, stdlib only, no dependencies.
 
+Agents invoke it as `.buildcli/runtime/bcx`, which cannot be shadowed and needs nothing on PATH.
+For your own terminal, `.buildcli/runtime/bcx shim --install` drops a dispatcher in `~/bin` so the
+short form works from any subdirectory of any bootstrapped project.
+
 ```bash
 bcx band service     # exactly that band — there is no call that returns the whole file
 bcx next             # units ready now, grouped by band, computed from the graph

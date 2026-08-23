@@ -12,6 +12,30 @@ the model may ignore and start being mechanisms:
 Python 3, standard library only. No build, no install, no dependencies. Bootstrap copies it to
 `.buildcli/runtime/bcx` in the target project.
 
+## Two ways to invoke it
+
+The runtime is project-local: it lives at `.buildcli/runtime/bcx` and never enters your PATH.
+
+**Agents call it by that path.** Every command and skill file in this framework spells it out in
+full, because a bare name could be shadowed by another program or missing entirely on the machine
+of whoever cloned the repository. Determinism beats brevity for something a model executes.
+
+**You can install a shim for typing at a prompt:**
+
+```bash
+.buildcli/runtime/bcx shim --install          # writes ~/bin/bcx
+.buildcli/runtime/bcx shim --install --dir /usr/local/bin
+.buildcli/runtime/bcx shim                    # print it without installing
+```
+
+The shim walks up from your working directory and execs the runtime of whichever project you are
+standing in, so one `bcx` on PATH serves every bootstrapped project — each on its own version. It
+refuses to overwrite a file that is not itself, warns when another `bcx` would win on PATH, and
+warns when the target directory is not on PATH.
+
+After that, `bcx next` works from any subdirectory. Examples below use the short form; the long
+form always works too.
+
 ## Commands
 
 ### Context

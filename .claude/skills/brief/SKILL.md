@@ -41,7 +41,7 @@ open the file, read nothing else, and proceed straight to `shape`.
    - **Out of scope** — what this brief deliberately leaves alone
    - **Relay block** — agent assignments plus a readiness signal
 8. Save `brief.md` inside the blueprint directory.
-9. Point the runtime at it: `bcx active blueprints/features/<slug>` — it validates the directory and writes the pointer.
+9. Point the runtime at it: `.buildcli/runtime/bcx active blueprints/features/<slug>` — it validates the directory and writes the pointer.
 10. Return: brief path, confirmation that `.buildcli/active` moved, readiness for `shape`.
 
 ## The active pointer

@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-from . import __version__, context, gate, paths, state, verify, worklist
+from . import __version__, context, gate, paths, shim, state, verify, worklist
 
 OK, FAIL, MISUSE = 0, 1, 2
 
@@ -282,6 +282,27 @@ def cmd_gate(root, args):
     return gate.dispatch(args.name)
 
 
+def cmd_shim(root, args):
+    """Install (or print) the PATH dispatcher for human use.
+
+    The framework's own files always call the runtime by its explicit project
+    path. This is purely a convenience for typing at a prompt.
+    """
+    if not args.install:
+        sys.stdout.write(shim.render())
+        return OK
+    try:
+        path, notes = shim.install(args.dir, force=args.force)
+    except RuntimeError as exc:
+        sys.stderr.write("bcx: %s\n" % exc)
+        return FAIL
+    print("  installed  %s" % path)
+    for note in notes:
+        print("  note       %s" % note)
+    print("  usage      bcx <command>, from anywhere inside a bootstrapped project")
+    return OK
+
+
 # ── parser ────────────────────────────────────────────────────────────────────
 
 def build_parser():
@@ -346,6 +367,12 @@ def build_parser():
 
     sp = add("gate", cmd_gate, "hook handler (reads the event on stdin)", needs_root=False)
     sp.add_argument("name", choices=sorted(gate.HANDLERS))
+
+    sp = add("shim", cmd_shim, "print or install the PATH dispatcher for interactive use",
+             needs_root=False)
+    sp.add_argument("--install", action="store_true", help="write the shim to disk")
+    sp.add_argument("--dir", default=None, help="target directory (default: ~/bin)")
+    sp.add_argument("--force", action="store_true", help="replace an existing file")
 
     return p
 

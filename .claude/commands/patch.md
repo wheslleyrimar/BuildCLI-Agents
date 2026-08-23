@@ -41,7 +41,7 @@ When `--trace` is passed:
 1. Build a kebab-case slug from the description.
 2. Create `blueprints/defects/<slug>/`.
 3. Write a short `brief.md`: summary, root cause hypothesis, affected files, acceptance criterion (the defect no longer reproduces), owning band.
-4. Run `bcx active blueprints/defects/<slug>`.
+4. Run `.buildcli/runtime/bcx active blueprints/defects/<slug>`.
 5. Fix as normal.
 6. Once fixed, update `brief.md` with the confirmed root cause and what changed.
 

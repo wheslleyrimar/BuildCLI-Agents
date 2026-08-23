@@ -13,7 +13,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from bcx_lib import context, gate, paths, state, verify, worklist  # noqa: E402
+from bcx_lib import context, gate, paths, shim, state, verify, worklist  # noqa: E402
 
 CONTEXT = """# Project Context
 
@@ -219,6 +219,66 @@ class TestGate(Base):
         for bad in ({}, {"cwd": "/nope"}, {"tool_input": {}}, {"tool_input": {"file_path": ""}}):
             self.assertEqual(gate.pre_write(self.root, bad), gate.ALLOW)
             self.assertEqual(gate.pre_read(self.root, bad), gate.ALLOW)
+
+
+class TestShim(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_install_is_executable(self):
+        path, _ = shim.install(self.dir)
+        self.assertTrue(os.access(path, os.X_OK))
+        self.assertIn("exec \"$dir/.buildcli/runtime/bcx\"", open(path).read())
+
+    def test_install_is_idempotent(self):
+        shim.install(self.dir)
+        path, notes = shim.install(self.dir)
+        self.assertIn("already installed and up to date", notes)
+
+    def test_refuses_to_clobber_a_stranger(self):
+        p = os.path.join(self.dir, "bcx")
+        open(p, "w").write("#!/bin/sh\necho something else\n")
+        with self.assertRaises(RuntimeError):
+            shim.install(self.dir)
+
+    def test_force_replaces(self):
+        p = os.path.join(self.dir, "bcx")
+        open(p, "w").write("#!/bin/sh\necho something else\n")
+        shim.install(self.dir, force=True)
+        self.assertIn("BuildCLI Agents runtime", open(p).read())
+
+    def test_warns_when_not_on_path(self):
+        _, notes = shim.install(self.dir)
+        self.assertTrue(any("not on your PATH" in n for n in notes))
+
+    def test_dispatches_from_a_nested_directory(self):
+        import subprocess
+        project = tempfile.mkdtemp()
+        rt = os.path.join(project, ".buildcli", "runtime")
+        os.makedirs(rt)
+        target = os.path.join(rt, "bcx")
+        open(target, "w").write("#!/bin/sh\necho DISPATCHED \"$@\"\n")
+        os.chmod(target, 0o755)
+        path, _ = shim.install(self.dir)
+        nested = os.path.join(project, "a", "b", "c")
+        os.makedirs(nested)
+        out = subprocess.run([path, "next"], cwd=nested, stdout=subprocess.PIPE,
+                             text=True, timeout=30)
+        shutil.rmtree(project, ignore_errors=True)
+        self.assertIn("DISPATCHED next", out.stdout)
+
+    def test_fails_outside_a_project(self):
+        import subprocess
+        path, _ = shim.install(self.dir)
+        empty = tempfile.mkdtemp()
+        out = subprocess.run([path, "next"], cwd=empty, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True, timeout=30)
+        shutil.rmtree(empty, ignore_errors=True)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("no .buildcli/runtime/bcx", out.stderr)
 
 
 if __name__ == "__main__":

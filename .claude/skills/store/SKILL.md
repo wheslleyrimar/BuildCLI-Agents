@@ -31,7 +31,7 @@ Read only:
 
 1. The `[band:store]` block, via the runtime:
    ```bash
-   bcx band store
+   .buildcli/runtime/bcx band store
    ```
    Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The specific migration, model, or query file(s) named by the task
@@ -45,7 +45,7 @@ Do not open interface components, service logic, or the delivery band unless the
 
 ## Workflow
 
-1. Run `bcx band store` to load the band. Nothing else from the context file.
+1. Run `.buildcli/runtime/bcx band store` to load the band. Nothing else from the context file.
 2. Locate the schema, model, or query the task points at.
 3. Open only the source files that matter to it.
 4. Apply the change following the migration strategy and naming conventions already in use.

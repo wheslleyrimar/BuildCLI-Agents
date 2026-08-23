@@ -30,7 +30,7 @@ Read only:
 
 1. The `[band:service]` block, via the runtime:
    ```bash
-   bcx band service
+   .buildcli/runtime/bcx band service
    ```
    Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The specific file(s) the task names
@@ -44,7 +44,7 @@ Do not open the interface, store, or delivery bands unless the task explicitly r
 
 ## Workflow
 
-1. Run `bcx band service` to load the band. Nothing else from the context file.
+1. Run `.buildcli/runtime/bcx band service` to load the band. Nothing else from the context file.
 2. Locate the module, service, or endpoint the task points at.
 3. Open only the source files that matter to it.
 4. Make the smallest change that satisfies the task and matches the conventions already in the band.

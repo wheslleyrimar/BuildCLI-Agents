@@ -19,7 +19,7 @@ Answer "where am I?" in one screen. Nothing is written; this is a diagnostic.
 
 ## Steps
 
-1. Run `bcx active`. Missing → report "No active blueprint. Run `brief` to start." and stop.
+1. Run `.buildcli/runtime/bcx active`. Missing → report "No active blueprint. Run `brief` to start." and stop.
 2. Open the blueprint directory and load whichever files are there:
    - `brief.md` → name, kind, confidence, blocking questions
    - `shape.md` → phases, risks

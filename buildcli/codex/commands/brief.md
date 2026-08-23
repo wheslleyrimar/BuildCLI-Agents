@@ -29,7 +29,7 @@ $ARGUMENTS
    - Blocking questions: <list or "none">
    - Ready for shape: yes | no
    ```
-8. Save `brief.md` and run `bcx active blueprints/<kind>/<slug>` to move the pointer.
+8. Save `brief.md` and run `.buildcli/runtime/bcx active blueprints/<kind>/<slug>` to move the pointer.
 9. Return the path, the confidence level, and anything still unresolved.
 
 ## Rules
