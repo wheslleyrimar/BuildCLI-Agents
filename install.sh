@@ -2,13 +2,13 @@
 #
 # BuildCLI Agents installer — run this from inside the project you want to set up.
 #
-#   bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/buildcli-agents/main/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/BuildCLI-Agents/main/install.sh)
 #   bash <(curl -fsSL .../install.sh) --agent claude
 #   bash <(curl -fsSL .../install.sh) --agent all --mode link
 
 set -euo pipefail
 
-REPO_URL="${BUILDCLI_REPO_URL:-https://github.com/wheslleyrimar/buildcli-agents.git}"
+REPO_URL="${BUILDCLI_REPO_URL:-https://github.com/wheslleyrimar/BuildCLI-Agents.git}"
 TMP_DIR="$(mktemp -d)"
 TARGET="$(pwd)"
 AGENT="all"

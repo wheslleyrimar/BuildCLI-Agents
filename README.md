@@ -26,7 +26,7 @@ runtime and its gates do not.
 Run this from inside the project you want to set up:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/buildcli-agents/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/BuildCLI-Agents/main/install.sh)
 ```
 
 With options:
@@ -291,7 +291,7 @@ Shared by all of them: `.buildcli/context.md`, `.buildcli/active`, `blueprints/`
 ### Option 1 — curl
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/buildcli-agents/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/BuildCLI-Agents/main/install.sh)
 ```
 
 ### Option 2 — from a clone
