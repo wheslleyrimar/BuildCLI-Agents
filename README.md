@@ -40,7 +40,15 @@ bash <(curl -fsSL .../install.sh) --target /path/to/project
 
 # Symlink mode — a pull in the source updates every linked project at once
 bash <(curl -fsSL .../install.sh) --agent all --mode link
+
+# Put `bcx` on PATH without being asked, and list every file installed
+bash <(curl -fsSL .../install.sh) --shim --verbose
 ```
+
+The installer prints one line per agent. At a terminal it also asks whether to put a `bcx`
+dispatcher on your PATH — the only file it would write outside the target project. `--shim`
+answers yes up front, `--no-shim` answers no, and with no terminal to ask on it skips the
+question. `--verbose` lists every file instead of the summary.
 
 Then open the project in your agent and run `survey`.
 
@@ -156,8 +164,9 @@ A framework of markdown files can only ask. `bcx`, installed to
 `.buildcli/runtime/bcx`, can answer and refuse. Python 3, stdlib only, no dependencies.
 
 Agents invoke it as `.buildcli/runtime/bcx`, which cannot be shadowed and needs nothing on PATH.
-For your own terminal, `.buildcli/runtime/bcx shim --install` drops a dispatcher in `~/bin` so the
-short form works from any subdirectory of any bootstrapped project.
+For your own terminal, the installer offers a dispatcher in `~/bin` — or run
+`.buildcli/runtime/bcx shim --install` yourself later — so the short form works from any
+subdirectory of any bootstrapped project.
 
 ```bash
 bcx band service     # exactly that band — there is no call that returns the whole file
@@ -307,6 +316,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/wheslleyrimar/BuildCLI-Agent
 --mode  MODE    copy | link                               (default: copy)
 --target PATH   target project                            (install.sh)
 --repo   PATH   target project                            (bootstrap.sh)
+--verbose       list every file, not one line per agent   (both)
+--shim          install the bcx dispatcher, no prompt     (install.sh)
+--no-shim       skip it, no prompt                        (install.sh)
+--shim-dir PATH install the dispatcher somewhere else     (install.sh)
 ```
 
 `copy` writes standalone files. `link` symlinks them, so pulling the BuildCLI Agents source updates every

@@ -15,6 +15,8 @@ Options:
   --repo PATH     Target repository. Default: current directory.
   --agent AGENT   claude | codex | gemini | copilot | all. Default: all.
   --mode MODE     copy | link. Default: copy.
+  -v, --verbose   List every file installed instead of a summary line per agent.
+  --no-banner     Skip the header, for callers that printed one already.
   -h, --help      Show this help.
 
 Examples:
@@ -29,6 +31,8 @@ KIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_PATH="$(pwd)"
 AGENT="all"
 MODE="copy"
+VERBOSE="${BUILDCLI_VERBOSE:-0}"
+BANNER=1
 BEGIN_MARK="<!-- buildcli:autoload:start -->"
 CLOSE_MARK="<!-- buildcli:autoload:end -->"
 
@@ -39,6 +43,8 @@ while [[ $# -gt 0 ]]; do
     --repo)  REPO_PATH="$2"; shift 2 ;;
     --agent) AGENT="$2";     shift 2 ;;
     --mode)  MODE="$2";      shift 2 ;;
+    -v|--verbose) VERBOSE=1; shift ;;
+    --no-banner)  BANNER=0;  shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
   esac
@@ -67,10 +73,49 @@ case "$MODE" in
   *) echo "Invalid --mode: $MODE  (copy | link)" >&2; exit 1 ;;
 esac
 
+# ── output ────────────────────────────────────────────────────────────────────
+# One line per agent by default; --verbose restores the full file listing. Color
+# is dropped when stdout is not a terminal, so logs and CI stay plain text.
+
+if [[ -t 1 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]]; then
+  C_RESET=$'\033[0m'; C_DIM=$'\033[2m'; C_BOLD=$'\033[1m'
+  C_GREEN=$'\033[32m'; C_CYAN=$'\033[36m'; C_YELLOW=$'\033[33m'
+  MARK_OK="✔"
+else
+  C_RESET=""; C_DIM=""; C_BOLD=""; C_GREEN=""; C_CYAN=""; C_YELLOW=""
+  MARK_OK="OK"
+fi
+
+TOTAL_FILES=0
+
+# Paths are noise at full length — every one of them starts with $REPO_PATH.
+rel() { echo "${1#$REPO_PATH/}"; }
+
+# A file that was written. Counted always, printed only in verbose mode.
+tick() {
+  local kind="$1" path="$2"
+  TOTAL_FILES=$((TOTAL_FILES + 1))
+  [[ "$VERBOSE" == "1" ]] && printf '    %s%-8s%s %s\n' "$C_DIM" "$kind" "$C_RESET" "$(rel "$path")"
+  return 0
+}
+
+# The summary line for a finished component.
+done_line() {
+  printf '  %s%s%s %s%-9s%s %s\n' \
+    "$C_GREEN" "$MARK_OK" "$C_RESET" "$C_BOLD" "$1" "$C_RESET" "$2"
+}
+
+warn_line() { printf '  %s!%s %s\n' "$C_YELLOW" "$C_RESET" "$1" >&2; }
+
 # ── file installation ─────────────────────────────────────────────────────────
+# Both installers report their count through COUNT, so the caller can build one
+# summary line instead of printing per file.
+
+COUNT=0
 
 install_commands() {
   local src_dir="$1" dest_dir="$2" file base dest
+  COUNT=0
   [[ -d "$src_dir" ]] || return 0
   mkdir -p "$dest_dir"
   for file in "$src_dir"/*.md; do
@@ -78,12 +123,14 @@ install_commands() {
     base="$(basename "$file")"
     dest="$dest_dir/$base"
     if [[ "$MODE" == "copy" ]]; then cp "$file" "$dest"; else ln -sfn "$file" "$dest"; fi
-    echo "  command  $dest"
+    tick "command" "$dest"
+    COUNT=$((COUNT + 1))
   done
 }
 
 install_skills() {
   local src_dir="$1" dest_dir="$2" skill_dir name dest src_file
+  COUNT=0
   [[ -d "$src_dir" ]] || return 0
   for skill_dir in "$src_dir"/*/; do
     [[ -d "$skill_dir" ]] || continue
@@ -93,8 +140,28 @@ install_skills() {
     dest="$dest_dir/$name"
     mkdir -p "$dest"
     if [[ "$MODE" == "copy" ]]; then cp "$src_file" "$dest/SKILL.md"; else ln -sfn "$src_file" "$dest/SKILL.md"; fi
-    echo "  skill    $dest/SKILL.md"
+    tick "skill" "$dest/SKILL.md"
+    COUNT=$((COUNT + 1))
   done
+}
+
+# One agent's commands and skills. The summary line waits for its startup file,
+# written afterwards, so the counts are held here.
+N_CMD=0
+N_SKILL=0
+
+agent_files() {
+  local label="$1" cmd_src="$2" cmd_dest="$3" skill_src="$4" skill_dest="$5"
+  [[ "$VERBOSE" == "1" ]] && printf '  %s%s%s\n' "$C_CYAN" "$label" "$C_RESET"
+  install_commands "$cmd_src" "$cmd_dest";   N_CMD="$COUNT"
+  install_skills   "$skill_src" "$skill_dest"; N_SKILL="$COUNT"
+  return 0
+}
+
+agent_done() {
+  local label="$1" startup="$2"
+  done_line "$label" "$(printf '%2d commands · %2d skills · %s' \
+    "$N_CMD" "$N_SKILL" "$(rel "$startup")")"
 }
 
 # ── shared state ──────────────────────────────────────────────────────────────
@@ -113,16 +180,25 @@ install_runtime() {
   cp "$src/bcx" "$dest/bcx"
   chmod +x "$dest/bcx"
   find "$dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-  echo "  runtime  $dest/bcx"
+  tick "runtime" "$dest/bcx"
+  # bcx_lib ships as a package. Its modules count toward the total, and get
+  # listed like anything else under --verbose.
+  local modules=0 module
+  while IFS= read -r module; do
+    tick "runtime" "$module"
+    modules=$((modules + 1))
+  done < <(find "$dest/bcx_lib" -type f | sort)
+  done_line "Runtime" "$(rel "$dest/bcx") $C_DIM+ $modules modules$C_RESET"
 
   if ! python3 --version >/dev/null 2>&1; then
-    echo "  WARNING: python3 not found on PATH — the runtime and its gates will not run." >&2
+    warn_line "python3 not found on PATH — the runtime and its gates will not run."
   fi
 }
 
 ensure_state() {
   local context="$REPO_PATH/.buildcli/context.md"
   local template="$KIT_ROOT/_shared/templates/context-template.md"
+  local note="blueprints/ · .buildcli/journal/"
 
   mkdir -p "$REPO_PATH/.buildcli"
   mkdir -p "$REPO_PATH/blueprints/features"
@@ -131,6 +207,7 @@ ensure_state() {
   mkdir -p "$REPO_PATH/.buildcli/journal"
   if [[ ! -f "$REPO_PATH/.buildcli/journal/.gitignore" ]]; then
     printf '*.log\n!.gitignore\n' > "$REPO_PATH/.buildcli/journal/.gitignore"
+    tick "state" "$REPO_PATH/.buildcli/journal/.gitignore"
   fi
 
   # The runtime belongs in the target project's history: settings.json hooks point at
@@ -143,18 +220,22 @@ active
 enforce.json
 __pycache__/
 IGNORE
-    echo "  state    $REPO_PATH/.buildcli/.gitignore"
+    tick "state" "$REPO_PATH/.buildcli/.gitignore"
   fi
 
-  if [[ ! -f "$context" ]]; then
-    if [[ -f "$template" ]]; then
-      cp "$template" "$context"
-      echo "  state    $context"
-    else
-      printf '# Project Context\n\nTODO: run the `survey` skill to populate this file.\n' > "$context"
-      echo "  state    $context (fallback)"
-    fi
+  if [[ -f "$context" ]]; then
+    note="$note · context.md kept"
+  elif [[ -f "$template" ]]; then
+    cp "$template" "$context"
+    tick "state" "$context"
+    note="$note · context.md (empty, run survey)"
+  else
+    printf '# Project Context\n\nTODO: run the `survey` skill to populate this file.\n' > "$context"
+    tick "state" "$context"
+    note="$note · context.md (fallback)"
   fi
+
+  done_line "State" "$note"
 }
 
 # ── autoload block management ─────────────────────────────────────────────────
@@ -188,7 +269,7 @@ write_autoload_block() {
 
   mv "$tmp" "$file"
   rm -f "$block_file"
-  echo "  startup  $file"
+  tick "startup" "$file"
 }
 
 band_lines() {
@@ -201,9 +282,8 @@ band_lines() {
 # ── per-agent installers ──────────────────────────────────────────────────────
 
 install_claude() {
-  echo "Claude:"
-  install_commands "$KIT_ROOT/claude/commands" "$REPO_PATH/.claude/commands"
-  install_skills   "$KIT_ROOT/claude/skills"   "$REPO_PATH/.claude/skills"
+  agent_files "Claude" "$KIT_ROOT/claude/commands" "$REPO_PATH/.claude/commands" \
+              "$KIT_ROOT/claude/skills"   "$REPO_PATH/.claude/skills"
 
   local file="$REPO_PATH/CLAUDE.md"
   ensure_startup_file "$file" "Claude Instructions"
@@ -269,12 +349,12 @@ Bootstrap command:
 $CLOSE_MARK
 DOC
   write_autoload_block "$file" "$block"
+  agent_done "Claude" "$file"
 }
 
 install_codex() {
-  echo "Codex:"
-  install_commands "$KIT_ROOT/codex/commands" "$REPO_PATH/.codex/commands"
-  install_skills   "$KIT_ROOT/codex/skills"   "$REPO_PATH/.codex/skills"
+  agent_files "Codex" "$KIT_ROOT/codex/commands" "$REPO_PATH/.codex/commands" \
+              "$KIT_ROOT/codex/skills"   "$REPO_PATH/.codex/skills"
 
   local file="$REPO_PATH/AGENTS.md"
   ensure_startup_file "$file" "Agent Instructions"
@@ -341,12 +421,12 @@ Bootstrap command:
 $CLOSE_MARK
 DOC
   write_autoload_block "$file" "$block"
+  agent_done "Codex" "$file"
 }
 
 install_gemini() {
-  echo "Gemini:"
-  install_commands "$KIT_ROOT/gemini/commands" "$REPO_PATH/.gemini/commands"
-  install_skills   "$KIT_ROOT/gemini/skills"   "$REPO_PATH/.gemini/skills"
+  agent_files "Gemini" "$KIT_ROOT/gemini/commands" "$REPO_PATH/.gemini/commands" \
+              "$KIT_ROOT/gemini/skills"   "$REPO_PATH/.gemini/skills"
 
   local file="$REPO_PATH/GEMINI.md"
   ensure_startup_file "$file" "Gemini Instructions"
@@ -413,12 +493,12 @@ Bootstrap command:
 $CLOSE_MARK
 DOC
   write_autoload_block "$file" "$block"
+  agent_done "Gemini" "$file"
 }
 
 install_copilot() {
-  echo "Copilot:"
-  install_commands "$KIT_ROOT/copilot/commands" "$REPO_PATH/.copilot/commands"
-  install_skills   "$KIT_ROOT/copilot/skills"   "$REPO_PATH/.github/skills"
+  agent_files "Copilot" "$KIT_ROOT/copilot/commands" "$REPO_PATH/.copilot/commands" \
+              "$KIT_ROOT/copilot/skills"   "$REPO_PATH/.github/skills"
 
   mkdir -p "$REPO_PATH/.github"
   local file="$REPO_PATH/.github/copilot-instructions.md"
@@ -495,27 +575,26 @@ Bootstrap command:
 $CLOSE_MARK
 DOC
   write_autoload_block "$file" "$block"
+  agent_done "Copilot" "$file"
 }
 
 # ── run ───────────────────────────────────────────────────────────────────────
 
-echo ""
-echo "BuildCLI Agents bootstrap"
-echo "  target : $REPO_PATH"
-echo "  agent  : $AGENT"
-echo "  mode   : $MODE"
-echo ""
+if [[ "$BANNER" == "1" ]]; then
+  printf '\n%sBuildCLI Agents%s %sbootstrap%s\n' "$C_BOLD" "$C_RESET" "$C_DIM" "$C_RESET"
+  printf '  %s%s%s\n' "$C_DIM" "$REPO_PATH" "$C_RESET"
+  printf '  %sagent %s · mode %s%s\n\n' "$C_DIM" "$AGENT" "$MODE" "$C_RESET"
+fi
 
 if [[ "$AGENT" == "claude"  || "$AGENT" == "all" ]]; then install_claude;  fi
 if [[ "$AGENT" == "codex"   || "$AGENT" == "all" ]]; then install_codex;   fi
 if [[ "$AGENT" == "gemini"  || "$AGENT" == "all" ]]; then install_gemini;  fi
 if [[ "$AGENT" == "copilot" || "$AGENT" == "all" ]]; then install_copilot; fi
 
-echo "Runtime:"
 install_runtime
-
-echo "Shared state:"
 ensure_state
 
-echo ""
-echo "Done. Installed into $REPO_PATH"
+printf '\n%sDone.%s %s%d files into %s%s\n' \
+  "$C_BOLD" "$C_RESET" "$C_DIM" "$TOTAL_FILES" "$REPO_PATH" "$C_RESET"
+[[ "$VERBOSE" == "1" ]] || \
+  printf '%s      --verbose lists every one of them.%s\n' "$C_DIM" "$C_RESET"

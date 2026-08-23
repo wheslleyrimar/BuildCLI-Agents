@@ -75,6 +75,18 @@ jobs:
       - name: Runtime is installed and runs
         run: /tmp/target/.buildcli/runtime/bcx --version
 
+      # The summary line is the only thing most people read, so its count has to
+      # be true. A file installed without a tick() call would drift silently.
+      - name: Reported file count matches the disk
+        run: |
+          rm -rf /tmp/counted && mkdir -p /tmp/counted
+          reported=$(bash buildcli/scripts/bootstrap.sh --repo /tmp/counted \
+                       | sed -n 's/^Done\. \([0-9]*\) files.*/\1/p')
+          actual=$(find /tmp/counted -type f | wc -l | tr -d ' ')
+          [ "$reported" = "$actual" ] || {
+            echo "bootstrap reported $reported files, $actual on disk" >&2; exit 1; }
+          echo "count: $reported, confirmed"
+
       - name: Guard rejects --repo inside the kit
         run: |
           if bash buildcli/scripts/bootstrap.sh --repo buildcli/claude 2>/dev/null; then

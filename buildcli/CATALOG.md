@@ -53,8 +53,9 @@ switch). Claude Code only — the other three agents have no blocking hook.
 ## Runtime commands
 
 Not skills — a real executable at `.buildcli/runtime/bcx`. Skills call it by that full path,
-never by a bare name. For your own terminal, `bcx shim --install` puts a dispatcher on PATH so
-the short form below works from any subdirectory. Full contract in `RUNTIME.md`.
+never by a bare name. For your own terminal, the installer offers a dispatcher on PATH — or
+`bcx shim --install` adds one later — so the short form below works from any subdirectory.
+Full contract in `RUNTIME.md`.
 
 | Command | Returns |
 |---|---|

@@ -20,7 +20,8 @@ The runtime is project-local: it lives at `.buildcli/runtime/bcx` and never ente
 full, because a bare name could be shadowed by another program or missing entirely on the machine
 of whoever cloned the repository. Determinism beats brevity for something a model executes.
 
-**You can install a shim for typing at a prompt:**
+**You can install a shim for typing at a prompt.** The installer offers it at the end of a run
+(`--shim` accepts up front, `--no-shim` declines), and it is always available afterwards:
 
 ```bash
 .buildcli/runtime/bcx shim --install          # writes ~/bin/bcx
