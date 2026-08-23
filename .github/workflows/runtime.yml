@@ -19,9 +19,9 @@ jobs:
         # The runtime ships to whatever python3 the target machine has.
         python: ["3.8", "3.11", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
 
@@ -42,7 +42,7 @@ jobs:
   skills-in-sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The Claude pipeline skills are generated from their command files.
       # This is the check that would have caught `.prism/` surviving a rename.
@@ -52,7 +52,7 @@ jobs:
   bootstrap:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Bootstrap into a scratch project
         run: |
