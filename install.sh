@@ -49,13 +49,40 @@ if [[ ! -d "$TARGET" ]]; then
   exit 1
 fi
 
+# ── prerequisites ─────────────────────────────────────────────────────────────
+# The markdown pipeline works without python3; the runtime and its enforcement
+# gates do not. Warn loudly rather than failing later, mid-session.
+PYTHON_OK=1
+if ! command -v python3 >/dev/null 2>&1; then
+  PYTHON_OK=0
+fi
+
 echo ""
 echo "  BuildCLI Agents installer"
 echo "  ───────────────"
 echo "  target : $TARGET"
 echo "  agent  : $AGENT"
 echo "  mode   : $MODE"
+if [[ "$PYTHON_OK" -eq 1 ]]; then
+  echo "  python : $(python3 --version 2>&1)"
+else
+  echo "  python : NOT FOUND"
+fi
 echo ""
+
+if [[ "$PYTHON_OK" -eq 0 ]]; then
+  cat >&2 <<'WARN'
+  WARNING: python3 is not on PATH.
+
+  The commands and skills install fine and the pipeline still works, but the
+  runtime (.buildcli/runtime/bcx) cannot run. That means no deterministic band
+  extraction, no dependency scheduling, no executable verification, and no
+  enforcement gates from `rig --enforce`.
+
+  Install python3 (3.8 or newer) and re-run this installer to get them.
+
+WARN
+fi
 
 if [[ "$MODE" == "link" ]]; then
   # Symlinks must point at a tree that survives this script, so keep a real clone.
@@ -90,6 +117,9 @@ Next steps:
   7. audit             → check the implementation against the brief
 
   Any time:  pulse (where am I) · focus (switch blueprint) · patch (fix a defect)
-  Claude Code only:  rig  → hooks, permissions, and the audit journal
+  Claude Code only:  rig --enforce  → blocking gates, permissions, audit journal
+
+  Type `bcx` yourself instead of the full path:
+      .buildcli/runtime/bcx shim --install
 
 NEXT

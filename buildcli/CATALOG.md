@@ -34,7 +34,21 @@ buildcli/
 |-------------|------------|------------------------|-------------------------------------------------|------|
 | `pulse.md`  | `/pulse`   | none                   | inline snapshot, nothing written                | any time |
 | `focus.md`  | `/focus`   | a blueprint slug       | updated `.buildcli/active`                         | switching between blueprints |
-| `rig.md`    | `/rig`     | `--minimal` / `--full` | `.claude/settings.json` + `.buildcli/journal/`     | once per project (Claude Code only) |
+| `rig.md`    | `/rig`     | `--minimal` \| `--full` \| `--enforce` | `.claude/settings.json`, `.buildcli/bands.json`, `.buildcli/enforce.json`, `.buildcli/journal/` | once per project (Claude Code only) |
+
+### The three rig levels
+
+Each level adds to the one before it, so `--enforce` can be applied later on top of a `--full` base.
+
+| Level | Adds |
+|---|---|
+| `--minimal` | the audit journal — every edit recorded |
+| `--full` (default) | band-scoped permissions in `settings.json` |
+| `--enforce` | `PreToolUse` gates that **block** a raw read of the context file, and block writes into a band other than the claimed unit's |
+
+`--enforce` is what turns the band rule from a convention into a mechanism. It also writes
+`.buildcli/bands.json` (which paths each band owns) and `.buildcli/enforce.json` (the per-gate off
+switch). Claude Code only — the other three agents have no blocking hook.
 
 ## Runtime commands
 
@@ -56,6 +70,7 @@ the short form below works from any subdirectory. Full contract in `RUNTIME.md`.
 | `bcx status` | pipeline snapshot |
 | `bcx doctor` | every structural problem in one list |
 | `bcx gate <name>` | hook handler: `pre-read`, `pre-write`, `post`, `stop` |
+| `bcx shim --install` | a PATH dispatcher, so a human can type `bcx` instead of the full path |
 
 ## Band skills
 
@@ -68,6 +83,15 @@ Each one reads exactly one block of `.buildcli/context.md` and refuses the rest.
 | `store`     | `[band:store]`     | schemas, migrations, models, queries, caching |
 | `verify`    | `[band:verify]`    | unit, integration, and E2E tests; coverage |
 | `delivery`  | `[band:delivery]`  | CI/CD, deploys, environments, secrets, monitoring |
+
+## Agent-specific commands
+
+| File          | Agent   | Purpose |
+|---------------|---------|---------|
+| `mcp-add.md`  | Copilot | add an MCP server to `.vscode/mcp.json`, without hardcoding a secret |
+
+Copilot has no `audit`, `forge`, or `rig`: the first two are covered by its chat workflow, and the
+third configures Claude Code hooks that Copilot does not have.
 
 ## Agent specialties
 
