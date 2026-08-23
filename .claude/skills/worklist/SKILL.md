@@ -16,7 +16,7 @@ blueprints/features/<slug>/worklist.md  (or blueprints/defects/<slug>/worklist.m
 ## Resolving the blueprint
 
 1. Arguments given → treat them as the blueprint directory.
-2. No arguments → read `.buildcli/active`.
+2. No arguments → run `buildcli active`.
 3. `.buildcli/active` missing → stop, ask the user to run `brief` first.
 4. Read `shape.md` from the resolved directory. Missing → stop, ask the user to run `shape` first.
 

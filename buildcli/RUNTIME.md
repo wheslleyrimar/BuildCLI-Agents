@@ -1,0 +1,141 @@
+# Runtime
+
+`buildcli` is the executable half of the framework. It exists so three things stop being requests
+the model may ignore and start being mechanisms:
+
+| Concern | Without the runtime | With it |
+|---|---|---|
+| Band scoping | a skill asks the model to read one block | `buildcli band <name>` returns exactly one block, and a hook blocks the raw read |
+| Scheduling | the model infers order from markdown | `buildcli next` computes it from the graph, and refuses to schedule a cycle |
+| Verification | `audit` reads test files and judges | `buildcli verify` runs the suite and reports the exit code |
+
+Python 3, standard library only. No build, no install, no dependencies. Bootstrap copies it to
+`.buildcli/runtime/buildcli` in the target project.
+
+## Commands
+
+### Context
+
+```bash
+buildcli band service          # print exactly that band
+buildcli band service --check  # exit 1 if the band is unpopulated
+buildcli header                # the shared header, with no band in it
+buildcli bands [--json]        # every band, populated or empty, with word counts
+```
+
+`band` is the only supported way to read project context. There is no path through the runtime
+that returns the whole file.
+
+### State
+
+```bash
+buildcli active                                  # print the active blueprint
+buildcli active blueprints/features/checkout     # move the pointer (validates brief.md exists)
+buildcli active checkout                         # bare slug also resolves
+buildcli blueprints [--json]                     # every blueprint with its stage
+```
+
+### Scheduling
+
+```bash
+buildcli graph [--json]        # units, critical path, cycles, structural problems
+buildcli next [--json]         # units ready now, grouped by band
+buildcli claim W03             # mark in progress — this is what scopes the write gate
+buildcli done W03
+buildcli block W03 --reason "waiting on credentials"
+```
+
+`graph` and `next` exit non-zero when the worklist is not schedulable. `claim` refuses a unit whose
+dependencies are unmet, and refuses a second concurrent claim, because the write gate keys off there
+being exactly one. `--force` overrides both.
+
+### Verification
+
+```bash
+buildcli verify                # run the test command from [band:verify]
+buildcli verify --command "npm test -- --run"
+buildcli verify --json --lines 60
+```
+
+The command is discovered from `[band:verify]`, preferring a value written in backticks. Exit code
+mirrors the suite.
+
+### Diagnostics
+
+```bash
+buildcli status [--json]       # stage, unit counts, ready units, band population
+buildcli doctor [--json]       # everything that is structurally wrong, in one list
+```
+
+`doctor` checks: all five bands declared and populated, bands within the ~300 word budget, an active
+blueprint, a schedulable worklist with valid band tags and real checks, and a discoverable test
+command.
+
+### Gates
+
+```bash
+buildcli gate pre-read | pre-write | post | stop
+```
+
+Hook handlers. They read the event JSON on stdin and communicate by exit code: `0` allows, `2`
+blocks and shows stderr to the model. Wired up by `rig --enforce`.
+
+## Configuration
+
+### `.buildcli/bands.json`
+
+Maps a band to the paths it owns. The write gate reads this. A band with no entry is not enforced.
+
+```json
+{
+  "service":   ["src/api/**", "src/services/**"],
+  "interface": ["src/components/**", "src/pages/**"],
+  "store":     ["migrations/**", "src/models/**"],
+  "verify":    ["tests/**", "**/*.test.*"],
+  "delivery":  [".github/workflows/**", "Dockerfile", "infra/**"]
+}
+```
+
+Globs support `*`, `?`, and `**` across separators.
+
+### `.buildcli/enforce.json`
+
+The switch, so the gates can be tuned without touching `settings.json`.
+
+```json
+{
+  "enabled": true,
+  "context_gate": true,
+  "write_gate": true,
+  "verify_on_stop": false
+}
+```
+
+## Design rules
+
+**Every gate fails open.** Malformed stdin, a missing config, an unknown project root, an internal
+exception — the tool call is allowed. A harness that bricks the session on its own bug is worse
+than no harness.
+
+**The write gate only blocks cross-band writes.** A path that no band claims — documentation, root
+config, scratch files — always passes. Enforcement targets the specific failure of drifting into
+another band mid-unit, not all editing.
+
+**Enforcement needs a single claimed unit.** With zero or several units in progress the current band
+is ambiguous, and the gate allows everything. Parallel sub-agents therefore run with the gate
+effectively advisory; sequential bands keep it tight.
+
+**Markdown stays the source of truth.** The runtime reads and rewrites individual fields in
+`worklist.md` in place. Nothing is stored in a database the human cannot see or edit.
+
+## Portability
+
+| Agent | Runtime | Blocking gates |
+|---|---|---|
+| Claude Code | yes | **yes** — PreToolUse hooks |
+| Codex | yes, via shell | no equivalent hook |
+| Gemini | yes, via shell | no equivalent hook |
+| Copilot | yes, via shell | no equivalent hook |
+
+All four benefit from deterministic band extraction, real scheduling, and executable verification.
+Only Claude Code can enforce.

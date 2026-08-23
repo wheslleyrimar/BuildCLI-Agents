@@ -10,7 +10,7 @@ usage: Paste this prompt into Copilot Chat
 Fix the defect I describe, on the smallest context footprint that can do it.
 
 Steps:
-1. If I passed `--trace`, first create `blueprints/defects/<slug>/brief.md` (summary, root cause hypothesis, affected files, acceptance criterion) and write the path to `.buildcli/active`.
+1. If I passed `--trace`, first create `blueprints/defects/<slug>/brief.md` (summary, root cause hypothesis, affected files, acceptance criterion) and run `buildcli active blueprints/defects/<slug>`.
 2. Identify the affected file(s).
 3. Route to a band:
    - API / service / auth / middleware → `[band:service]`

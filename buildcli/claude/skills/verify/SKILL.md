@@ -28,7 +28,11 @@ Reads a single band plus the code under test.
 
 Read only:
 
-1. The `[band:verify]` block from `.buildcli/context.md`
+1. The `[band:verify]` block, via the runtime:
+   ```bash
+   buildcli band verify
+   ```
+   Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The source file(s) under test
 3. The existing test file(s) for that unit, if any
 
@@ -41,7 +45,7 @@ Do not open unrelated services, components, or delivery config unless the task e
 
 ## Workflow
 
-1. Read `[band:verify]` from `.buildcli/context.md`.
+1. Run `buildcli band verify` to load the band. Nothing else from the context file.
 2. Read the source file(s) to understand inputs, outputs, and where they break.
 3. Read the existing tests so you extend them rather than duplicate them.
 4. Write focused, deterministic tests: the happy path plus the edge cases that actually bite.

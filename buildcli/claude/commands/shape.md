@@ -13,7 +13,7 @@ $ARGUMENTS
 ## Resolving the blueprint
 
 1. Arguments given → treat them as the blueprint directory (or the brief file inside it).
-2. No arguments → read `.buildcli/active` for the active blueprint directory.
+2. No arguments → run `buildcli active` for the active blueprint directory.
 3. `.buildcli/active` missing or empty → stop and ask the user to run `/brief` first.
 4. Read `brief.md` from the resolved directory.
 5. Check the `## Relay` block for `Ready for shape: yes`. If it says no, surface the blocking questions before writing anything.

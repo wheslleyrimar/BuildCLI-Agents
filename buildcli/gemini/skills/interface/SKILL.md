@@ -28,7 +28,11 @@ Reads a single band so the context cost stays flat as the project grows.
 
 Read only:
 
-1. The `[band:interface]` block from `.buildcli/context.md`
+1. The `[band:interface]` block, via the runtime:
+   ```bash
+   buildcli band interface
+   ```
+   Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The specific component(s) or page(s) named by the task
 
 Do not open service logic, migrations, or the delivery band unless the task explicitly reaches into them.
@@ -40,7 +44,7 @@ Do not open service logic, migrations, or the delivery band unless the task expl
 
 ## Workflow
 
-1. Read `[band:interface]` from `.buildcli/context.md`.
+1. Run `buildcli band interface` to load the band. Nothing else from the context file.
 2. Locate the component, page, or state slice the task points at.
 3. Open only the source files that matter to it.
 4. Make the smallest change that satisfies the task and matches the conventions already in the band.

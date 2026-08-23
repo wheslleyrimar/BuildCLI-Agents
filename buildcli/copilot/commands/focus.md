@@ -17,7 +17,7 @@ No slug given — list mode:
 Slug given — switch mode:
 1. Resolve against `blueprints/features/<slug>/`, then `blueprints/defects/<slug>/`. A path with a `features/` or `defects/` prefix is used directly.
 2. Confirm `brief.md` exists there.
-3. Write the resolved path to `.buildcli/active`.
+3. Run `buildcli active <path>` — it validates and writes the pointer.
 4. Print the blueprint name, its stage, and the next step.
 
 Rules:

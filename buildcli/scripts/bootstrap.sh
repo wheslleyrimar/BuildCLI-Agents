@@ -99,6 +99,27 @@ install_skills() {
 
 # ── shared state ──────────────────────────────────────────────────────────────
 
+install_runtime() {
+  local src="$KIT_ROOT/runtime"
+  local dest="$REPO_PATH/.buildcli/runtime"
+
+  [[ -d "$src" ]] || return 0
+
+  mkdir -p "$dest"
+  # The runtime is always copied. Symlinking it would break the hook commands
+  # recorded in settings.json the moment the source tree moves.
+  rm -rf "$dest/bcli"
+  cp -R "$src/bcli" "$dest/bcli"
+  cp "$src/buildcli" "$dest/buildcli"
+  chmod +x "$dest/buildcli"
+  find "$dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+  echo "  runtime  $dest/buildcli"
+
+  if ! python3 --version >/dev/null 2>&1; then
+    echo "  WARNING: python3 not found on PATH — the runtime and its gates will not run." >&2
+  fi
+}
+
 ensure_state() {
   local context="$REPO_PATH/.buildcli/context.md"
   local template="$KIT_ROOT/_shared/templates/context-template.md"
@@ -106,6 +127,11 @@ ensure_state() {
   mkdir -p "$REPO_PATH/.buildcli"
   mkdir -p "$REPO_PATH/blueprints/features"
   mkdir -p "$REPO_PATH/blueprints/defects"
+
+  mkdir -p "$REPO_PATH/.buildcli/journal"
+  if [[ ! -f "$REPO_PATH/.buildcli/journal/.gitignore" ]]; then
+    printf '*.log\n!.gitignore\n' > "$REPO_PATH/.buildcli/journal/.gitignore"
+  fi
 
   if [[ ! -f "$context" ]]; then
     if [[ -f "$template" ]]; then
@@ -199,6 +225,20 @@ Startup behavior (required):
 3. Before any task, load only the band skill matching the work: service, interface, store, verify, delivery.
 4. Each band skill names the exact block of \`.buildcli/context.md\` to read. Read that block, nothing else.
 5. Missing critical information → mark \`NEEDS CLARIFICATION\` and continue on safe defaults.
+
+Runtime (always prefer it over reading state files by hand):
+- \`buildcli band <name>\`   — load exactly one context band
+- \`buildcli header\`        — the shared header, without any band
+- \`buildcli active [path]\` — read or move the active blueprint pointer
+- \`buildcli next\`          — units ready to start, grouped by band
+- \`buildcli graph\`         — dependency graph, critical path, cycle report
+- \`buildcli claim|done|block <id>\` — unit state transitions
+- \`buildcli verify\`        — run the project's test command
+- \`buildcli status --json\` — pipeline snapshot
+- \`buildcli doctor\`        — validate context, graph, and configuration
+
+It lives at \`.buildcli/runtime/buildcli\`. With \`rig --enforce\` applied, reading
+\`.buildcli/context.md\` directly is blocked by a PreToolUse hook.
 
 Shared state:
 - \`.buildcli/context.md\`   — project context, split into [band:*] blocks
@@ -414,6 +454,9 @@ if [[ "$AGENT" == "claude"  || "$AGENT" == "all" ]]; then install_claude;  fi
 if [[ "$AGENT" == "codex"   || "$AGENT" == "all" ]]; then install_codex;   fi
 if [[ "$AGENT" == "gemini"  || "$AGENT" == "all" ]]; then install_gemini;  fi
 if [[ "$AGENT" == "copilot" || "$AGENT" == "all" ]]; then install_copilot; fi
+
+echo "Runtime:"
+install_runtime
 
 echo "Shared state:"
 ensure_state

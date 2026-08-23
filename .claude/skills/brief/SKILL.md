@@ -40,7 +40,7 @@ open the file, read nothing else, and proceed straight to `shape`.
    - **Out of scope** — what this brief deliberately leaves alone
    - **Relay block** — agent assignments plus a readiness signal
 8. Save `brief.md` inside the blueprint directory.
-9. Write the blueprint directory path (e.g. `blueprints/features/checkout-flow`) to `.buildcli/active` — one line, no trailing slash.
+9. Point the runtime at it: `buildcli active blueprints/features/<slug>` — it validates the directory and writes the pointer.
 10. Return: brief path, confirmation that `.buildcli/active` moved, readiness for `shape`.
 
 ## The active pointer

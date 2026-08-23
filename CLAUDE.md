@@ -33,6 +33,20 @@ Startup behavior (required):
 4. Each band skill names the exact block of `.buildcli/context.md` to read. Read that block, nothing else.
 5. Missing critical information → mark `NEEDS CLARIFICATION` and continue on safe defaults.
 
+Runtime (always prefer it over reading state files by hand):
+- `buildcli band <name>`   — load exactly one context band
+- `buildcli header`        — the shared header, without any band
+- `buildcli active [path]` — read or move the active blueprint pointer
+- `buildcli next`          — units ready to start, grouped by band
+- `buildcli graph`         — dependency graph, critical path, cycle report
+- `buildcli claim|done|block <id>` — unit state transitions
+- `buildcli verify`        — run the project's test command
+- `buildcli status --json` — pipeline snapshot
+- `buildcli doctor`        — validate context, graph, and configuration
+
+It lives at `.buildcli/runtime/buildcli`. With `rig --enforce` applied, reading
+`.buildcli/context.md` directly is blocked by a PreToolUse hook.
+
 Shared state:
 - `.buildcli/context.md`   — project context, split into [band:*] blocks
 - `.buildcli/active`       — path to the active blueprint directory

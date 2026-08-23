@@ -6,7 +6,7 @@
             A G E N T S
 ```
 
-**A spec-driven agent framework you bootstrap into any project.**
+**A spec-driven agent harness you bootstrap into any project.**
 
 BuildCLI Agents splits your project context into five independent **bands** and hands each task exactly one.
 A backend change loads the service band. Nothing else. The pipeline on top of that — brief, shape,
@@ -14,6 +14,12 @@ worklist, build, audit — keeps the work in versioned files instead of chat scr
 Codex, Gemini, and Copilot can hand off to each other without re-explaining anything.
 
 ---
+
+## Requirements
+
+`python3` on PATH — that is the whole list. The runtime uses the standard library only: no pip
+install, no build step, no lockfile. Without python3 the markdown pipeline still works; the
+runtime and its gates do not.
 
 ## Install
 
@@ -57,7 +63,8 @@ Every task loads:         A service task loads:
   (~3000 words)
 ```
 
-The saving is not a trick. It is written into each skill: *read this block, and refuse the rest.*
+The saving is not a convention you hope the model honours. A runtime returns exactly one band,
+and a `PreToolUse` hook blocks any attempt to read the context file whole.
 
 ---
 
@@ -143,19 +150,54 @@ Plus, at any point:
 | `/forge`  | write a project-specific skill from real source patterns         |
 | `/rig`    | Claude Code hooks, permissions, audit journal                    |
 
-### 5. The harness (Claude Code)
+### 5. The runtime — what makes it a harness, not a convention
 
-`rig` wires the runtime into the project:
+A framework of markdown files can only ask. `buildcli`, installed to
+`.buildcli/runtime/buildcli`, can answer and refuse. Python 3, stdlib only, no dependencies.
+
+```bash
+buildcli band service     # exactly that band — there is no call that returns the whole file
+buildcli next             # units ready now, grouped by band, computed from the graph
+buildcli graph            # critical path, and a hard error on a dependency cycle
+buildcli claim W03        # scopes the write gate to that unit's band
+buildcli verify           # runs the real test command and reports the real exit code
+buildcli doctor           # every structural problem, in one list
+```
+
+Three things stop being advisory:
+
+| | Before | Now |
+|---|---|---|
+| Band scoping | the skill asks | `buildcli band` returns one block; a hook blocks the raw read |
+| Scheduling | the model infers order | the runtime computes it, and refuses to schedule a cycle |
+| Verification | `audit` reads test files | `buildcli verify` runs the suite |
+
+### 6. Enforcement (Claude Code)
+
+`rig --enforce` writes hooks that can say no:
+
+| Hook | Effect |
+|---|---|
+| `PreToolUse` on `Read` | **blocks** a raw read of `.buildcli/context.md` |
+| `PreToolUse` on `Write\|Edit` | **blocks** writes into a band other than the claimed unit's |
+| `PostToolUse` | journals every edit and every test/lint/build command |
+| `Stop` | journals the session end, optionally runs the suite |
 
 ```
-.claude/settings.json     PostToolUse hooks log every file edit
-                          Stop hook runs session-end.sh
-                          band-scoped permissions (--full)
-.buildcli/journal/session.log   2026-08-22 14:32:01 | EDIT | src/api/checkout.ts
-.buildcli/hooks/session-end.sh  yours to extend: tests, lint, auto-commit
+.claude/settings.json          hooks + scoped permissions
+.buildcli/bands.json           which paths each band owns
+.buildcli/enforce.json         the off switch, per gate
+.buildcli/journal/session.log  2026-08-22 14:32:01 | EDIT | src/api/checkout.ts
 ```
 
-Run it once. After that the hooks fire on their own, every session.
+Two design rules worth knowing before you rely on it:
+
+- **Every gate fails open.** Malformed input, missing config, internal error — the call is allowed.
+  A harness that breaks the session on its own bug is worse than no harness.
+- **Only cross-band writes are blocked.** Paths no band claims — docs, root config — always pass.
+
+Blocking gates are Claude Code only; Codex, Gemini, and Copilot get the runtime but not the
+enforcement. See `buildcli/RUNTIME.md` for the full contract.
 
 ---
 
@@ -287,7 +329,9 @@ each startup file, and leaves everything you wrote around it untouched.
 │   ├── skills/     service interface store verify delivery
 │   └── copilot-instructions.md
 ├── .buildcli/
-│   └── context.md
+│   ├── context.md
+│   ├── runtime/buildcli     the executable
+│   └── journal/
 ├── blueprints/
 │   ├── features/
 │   └── defects/
@@ -302,9 +346,11 @@ each startup file, and leaves everything you wrote around it untouched.
 
 ```
 buildcli/         the kit — source for everything that gets installed
+  runtime/        the buildcli executable (Python 3, stdlib only)
 install.sh        curl entry point
 SYSTEM-PROMPT.md  a system prompt for greenfield projects, for any agent
 ```
 
-See `buildcli/CATALOG.md` for every command and skill, and `buildcli/ROUTING.md` for how each agent
+See `buildcli/RUNTIME.md` for the runtime contract, `buildcli/CATALOG.md` for every command and
+skill, and `buildcli/ROUTING.md` for how each agent
 finds its files.

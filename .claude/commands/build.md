@@ -1,6 +1,6 @@
 ---
-description: Execute a worklist band by band, tracking progress live and fanning out to sub-agents where the dependency graph allows.
-arguments: (optional) Path to a blueprint directory. Omitted → reads .buildcli/active.
+description: Execute a worklist band by band, scheduled by the runtime, with live progress and sub-agent fan-out.
+arguments: (optional) Path to a blueprint directory. Omitted → the runtime reads the active pointer.
 output: Code changes + a build report
 ---
 
@@ -12,40 +12,65 @@ $ARGUMENTS
 
 ## Resolving the blueprint
 
-1. Arguments given → treat them as the blueprint directory.
-2. No arguments → read `.buildcli/active`.
-3. `.buildcli/active` missing → stop, ask the user to run `/brief` first.
-4. Read `worklist.md` from the resolved directory. Missing → stop, ask the user to run `/worklist` first.
-5. Read `shape.md` for the quality gates and architectural constraints.
+The runtime resolves it. Do not read the pointer file yourself.
+
+```bash
+buildcli active          # the active blueprint, or an error telling you to run /brief
+buildcli graph           # units, critical path, and any structural problem
+```
+
+`buildcli graph` exits non-zero when the worklist is not schedulable — a dependency cycle, an
+unknown band tag, a unit with no check. Fix those before building anything; a cycle means the
+plan is wrong, not the code.
 
 ## Steps
 
-1. Resolve the blueprint directory as above.
-2. Read `worklist.md` and group the units by band: `service`, `interface`, `store`, `verify`, `delivery`.
-3. Register every unit in TodoWrite as `pending` before touching a single file.
-4. Derive the execution order from the dependency graph:
-   - Unblocked units in different bands → candidates to run in parallel sub-agents.
-   - Units with declared blockers → strict dependency order.
-5. For each unit, or each band batch:
+1. Run `buildcli graph`. Non-zero exit → report the problems and stop.
+2. Register every unit in TodoWrite as `pending` before touching a file.
+3. Ask the runtime what can start:
+   ```bash
+   buildcli next --json
+   ```
+   It returns the ready units grouped by band — unblocked, dependencies satisfied. That grouping
+   is the fan-out plan; you do not compute the order yourself.
+4. For each unit:
+   ```bash
+   buildcli claim W03            # marks it in progress; the write gate now scopes to its band
+   buildcli band service         # load exactly the band that unit belongs to
+   ```
    a. Flip the unit to `in_progress` in TodoWrite.
    b. Load `.claude/skills/<band>/SKILL.md`.
-   c. Read only the `[band:<band>]` block from `.buildcli/context.md`.
-   d. Write the smallest change that satisfies the unit's check.
-   e. Flip the unit to `done` the moment it lands — not later.
-   f. Anything that ripples into another band becomes a logged follow-up, never an in-place fix.
-6. When every unit is resolved, emit the report.
+   c. Write the smallest change that satisfies the unit's check.
+   d. Close it out:
+      ```bash
+      buildcli done W03                            # or:
+      buildcli block W03 --reason "<what stopped it>"
+      ```
+   e. Anything that ripples into another band becomes a follow-up unit, never an in-place fix.
+      With the harness enforced, the write gate will block you from touching another band's
+      files while this unit is claimed. That block is the design working, not an obstacle.
+5. Repeat from step 3 until `buildcli next` reports nothing ready.
+6. Run the suite and record the result:
+   ```bash
+   buildcli verify
+   ```
+7. Emit the report.
 
 ## Sub-agent fan-out
 
-When units in different bands share no dependencies:
+`buildcli next --json` returns more than one band → those groups are independent and can run
+concurrently. Spawn one sub-agent per band and hand each:
 
-- Spawn one sub-agent per band group.
-- Hand each sub-agent exactly four things:
-  - the unit list for its band
-  - the path to its band skill, `.claude/skills/<band>/SKILL.md`
-  - the matching `[band:<band>]` block from `.buildcli/context.md`
-  - `brief.md` from the resolved directory, for reference
-- Merge the sub-agent results before reporting.
+- its unit list, from the runtime's output
+- the path to its band skill, `.claude/skills/<band>/SKILL.md`
+- the instruction to load context with `buildcli band <band>` and nothing else
+- `brief.md`, for reference
+
+One caveat: the write gate keys off a *single* claimed unit. Parallel sub-agents each claiming a
+unit make the current band ambiguous, and the gate then allows everything by design. Either fan out
+with the gate as advisory, or run the bands sequentially to keep enforcement tight.
+
+Merge the sub-agent results before reporting.
 
 ## Output
 
@@ -61,14 +86,18 @@ When units in different bands share no dependencies:
 ### Cross-band follow-ups
 - [service → interface] what needs attention
 
+### Verification
+- command: npm test
+- result: PASS (exit 0)
+
 ### Quality gates
 - Gate name: Pass | Fail
 ```
 
 ## Rules
 
-- Resolve from `.buildcli/active` when no arguments are given.
-- Never read `context.md` whole. One band, the one you are working in.
-- Never resolve a cross-band ripple inside the unit that found it. Flag it.
-- Update TodoWrite in real time. A batch update at the end tells the user nothing while it matters.
+- Let the runtime schedule. Never hand-derive the dependency order from the markdown.
+- Never read `.buildcli/context.md`. One band, through `buildcli band`.
+- Never resolve a cross-band ripple inside the unit that found it.
+- Update TodoWrite and the runtime together — a unit marked done in one and not the other is a lie.
 - One concern per unit — no feature, fix, and refactor bundled into a single step.

@@ -36,6 +36,26 @@ buildcli/
 | `focus.md`  | `/focus`   | a blueprint slug       | updated `.buildcli/active`                         | switching between blueprints |
 | `rig.md`    | `/rig`     | `--minimal` / `--full` | `.claude/settings.json` + `.buildcli/journal/`     | once per project (Claude Code only) |
 
+## Runtime commands
+
+Not skills — a real executable at `.buildcli/runtime/buildcli`. Skills call it instead of reading
+state files by hand. Full contract in `RUNTIME.md`.
+
+| Command | Returns |
+|---|---|
+| `buildcli band <name>` | exactly one context band |
+| `buildcli header` | the shared header, with no band |
+| `buildcli bands` | every band, populated or empty |
+| `buildcli active [path]` | read or move the active blueprint pointer |
+| `buildcli blueprints` | every blueprint with its stage |
+| `buildcli next` | units ready now, grouped by band |
+| `buildcli graph` | dependency graph, critical path, cycle report |
+| `buildcli claim\|done\|block <id>` | unit state transitions, written back to worklist.md |
+| `buildcli verify` | runs the test command, reports the exit code |
+| `buildcli status` | pipeline snapshot |
+| `buildcli doctor` | every structural problem in one list |
+| `buildcli gate <name>` | hook handler: `pre-read`, `pre-write`, `post`, `stop` |
+
 ## Band skills
 
 Each one reads exactly one block of `.buildcli/context.md` and refuses the rest.

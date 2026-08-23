@@ -29,7 +29,11 @@ Reads a single band to keep the context cost flat.
 
 Read only:
 
-1. The `[band:store]` block from `.buildcli/context.md`
+1. The `[band:store]` block, via the runtime:
+   ```bash
+   buildcli band store
+   ```
+   Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The specific migration, model, or query file(s) named by the task
 
 Do not open interface components, service logic, or the delivery band unless the task explicitly reaches into them.
@@ -41,7 +45,7 @@ Do not open interface components, service logic, or the delivery band unless the
 
 ## Workflow
 
-1. Read `[band:store]` from `.buildcli/context.md`.
+1. Run `buildcli band store` to load the band. Nothing else from the context file.
 2. Locate the schema, model, or query the task points at.
 3. Open only the source files that matter to it.
 4. Apply the change following the migration strategy and naming conventions already in use.

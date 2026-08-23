@@ -28,7 +28,11 @@ Reads a single band so the context cost stays flat as the project grows.
 
 Read only:
 
-1. The `[band:delivery]` block from `.buildcli/context.md`
+1. The `[band:delivery]` block, via the runtime:
+   ```bash
+   buildcli band delivery
+   ```
+   Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The specific pipeline, infrastructure, or config file(s) named by the task
 
 Do not open application source, interface components, or migrations unless the task explicitly reaches into them.
@@ -40,7 +44,7 @@ Do not open application source, interface components, or migrations unless the t
 
 ## Workflow
 
-1. Read `[band:delivery]` from `.buildcli/context.md`.
+1. Run `buildcli band delivery` to load the band. Nothing else from the context file.
 2. Locate the pipeline step, deploy target, or config the task points at.
 3. Open only the source files that matter to it.
 4. Make the smallest change that satisfies the task and matches the conventions already in the band.

@@ -35,7 +35,7 @@ started last week.
    - Argument already carries a `features/` or `defects/` prefix → use it directly.
    - Nothing matches → list what exists and ask again.
 2. Confirm `brief.md` is present in the target directory.
-3. Write the resolved path (e.g. `blueprints/features/checkout-flow`) to `.buildcli/active`.
+3. Run `buildcli active <path>` — it validates and writes the pointer.
 4. Read the blueprint's name and stage; confirm the move.
 
 ## Output — list mode

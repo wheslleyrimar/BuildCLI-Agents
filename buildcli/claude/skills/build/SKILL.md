@@ -16,7 +16,7 @@ Code changes + a build report.
 ## Resolving the blueprint
 
 1. Arguments given → treat them as the blueprint directory.
-2. No arguments → read `.buildcli/active`.
+2. No arguments → run `buildcli active`.
 3. `.buildcli/active` missing → stop, ask the user to run `brief` first.
 4. Read `worklist.md` from the resolved directory. Missing → stop, ask the user to run `worklist` first.
 5. Read `shape.md` for the quality gates and architectural constraints.

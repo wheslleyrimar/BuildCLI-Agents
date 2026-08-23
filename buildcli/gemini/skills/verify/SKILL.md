@@ -28,7 +28,11 @@ Reads a single band so the context cost stays flat as the project grows.
 
 Read only:
 
-1. The `[band:verify]` block from `.buildcli/context.md`
+1. The `[band:verify]` block, via the runtime:
+   ```bash
+   buildcli band verify
+   ```
+   Do not open `.buildcli/context.md` directly — with the harness enforced, that read is blocked
 2. The source file(s) under test, and the existing tests for them
 
 Do not open unrelated services, components, or delivery config unless the task explicitly reaches into them.
@@ -40,7 +44,7 @@ Do not open unrelated services, components, or delivery config unless the task e
 
 ## Workflow
 
-1. Read `[band:verify]` from `.buildcli/context.md`.
+1. Run `buildcli band verify` to load the band. Nothing else from the context file.
 2. Locate the unit under test and the tests that already cover it.
 3. Open only the source files that matter to it.
 4. Make the smallest change that satisfies the task and matches the conventions already in the band.
