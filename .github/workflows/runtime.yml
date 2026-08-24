@@ -79,6 +79,13 @@ jobs:
       - name: Runtime is installed and runs
         run: /tmp/target/.buildcli/runtime/bcx --version
 
+      - name: Codex rig is installed
+        run: |
+          test -f /tmp/target/.codex/commands/rig.md
+          test -f /tmp/target/.codex/skills/rig/SKILL.md
+          grep -q '/rig' /tmp/target/AGENTS.md
+          echo "codex rig: confirmed"
+
       # The summary line is the only thing most people read, so its count has to
       # be true. A file installed without a tick() call would drift silently.
       - name: Reported file count matches the disk

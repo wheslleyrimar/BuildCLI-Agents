@@ -13,7 +13,8 @@ right folders and writes the autoload block into each startup file.
 │   └── skills/
 ├── .codex/
 │   ├── commands/                 ← loaded natively by Codex
-│   └── skills/
+│   ├── skills/
+│   └── hooks.json                ← optional, written by Codex rig
 ├── .gemini/
 │   ├── commands/                 ← loaded natively by Gemini
 │   └── skills/
@@ -26,7 +27,7 @@ right folders and writes the autoload block into each startup file.
 │   ├── context.md                ← shared context, split into [band:*] blocks
 │   ├── active                    ← path to the active blueprint
 │   ├── journal/session.log       ← audit trail (written by rig hooks)
-│   └── runtime/bcx               ← `bcx gate stop` closes each Claude Code session
+│   └── runtime/bcx               ← `bcx gate stop` closes each hooked session
 ├── blueprints/
 │   ├── features/<slug>/          ← brief.md · shape.md · worklist.md · audit.md
 │   └── defects/<slug>/
@@ -71,7 +72,7 @@ The `buildcli/` kit folder stays in this source repository. It is never copied i
 | Agent   | Strength                        | Best stage                              |
 |---------|---------------------------------|-----------------------------------------|
 | Claude  | Broad reasoning, orchestration  | shape, worklist, build, rig             |
-| Codex   | Focused code generation         | build, patch                            |
+| Codex   | Focused code generation, hooks  | build, patch, rig                       |
 | Gemini  | Requirements and gap analysis   | brief, audit                            |
 | Copilot | In-editor, model-agnostic       | build and patch inside the IDE          |
 

@@ -156,7 +156,7 @@ Plus, at any point:
 | `/focus`  | list blueprints, or move the active pointer to one               |
 | `/patch`  | minimal defect fix; `--trace` files a defect blueprint           |
 | `/forge`  | write a project-specific skill from real source patterns         |
-| `/rig`    | Claude Code hooks, permissions, audit journal                    |
+| `/rig`    | Claude Code or Codex hooks, permissions where supported, audit journal |
 
 ### 5. The runtime — what makes it a harness, not a convention
 
@@ -185,20 +185,21 @@ Three things stop being advisory:
 | Scheduling | the model infers order | the runtime computes it, and refuses to schedule a cycle |
 | Verification | `audit` reads test files | `bcx verify` runs the suite |
 
-### 6. Enforcement (Claude Code)
+### 6. Enforcement (Claude Code and Codex)
 
 `rig --enforce` writes hooks that can say no:
 
 | Hook | Effect |
 |---|---|
-| `PreToolUse` on `Read` | **blocks** a raw read of `.buildcli/context.md` |
-| `PreToolUse` on `Write\|Edit` | **blocks** writes into a band other than the claimed unit's |
+| `PreToolUse` on reads / Bash | **blocks** a raw read of `.buildcli/context.md` |
+| `PreToolUse` on writes / `apply_patch` | **blocks** writes into a band other than the claimed unit's |
 | `PostToolUse` | journals every edit and every test/lint/build command |
 | `Stop` | journals a checkpoint — blueprint, claims, units completed, verify outcome |
 | `SessionStart` | prints `bcx resume` as context, so a new session opens knowing where it is |
 
 ```
 .claude/settings.json          hooks + scoped permissions
+.codex/hooks.json              Codex lifecycle hooks
 .buildcli/bands.json           which paths each band owns
 .buildcli/enforce.json         the off switch, per gate
 .buildcli/journal/session.log  2026-08-22 14:32:01 | EDIT | src/api/checkout.ts
@@ -216,8 +217,8 @@ Two design rules worth knowing before you rely on it:
   A harness that breaks the session on its own bug is worse than no harness.
 - **Only cross-band writes are blocked.** Paths no band claims — docs, root config — always pass.
 
-Blocking gates are Claude Code only; Codex, Gemini, and Copilot get the runtime but not the
-enforcement. See `buildcli/RUNTIME.md` for the full contract.
+Blocking gates ship for Claude Code and Codex. Gemini and Copilot get the runtime but not lifecycle
+hook enforcement. See `buildcli/RUNTIME.md` for the full contract.
 
 ---
 
@@ -228,7 +229,7 @@ enforcement. See `buildcli/RUNTIME.md` for the full contract.
 ```
 1. install            copy commands and skills into the project
 2. survey             write .buildcli/context.md
-3. rig                hooks, permissions, journal (Claude Code)
+3. rig                hooks, permissions where supported, journal
 ```
 
 ### A feature, one agent
@@ -268,7 +269,7 @@ patch <describe> <file> --trace    the same fix, plus a tracked defect blueprint
 | Agent       | Strength                       | Best at                                     | Commands |
 |-------------|--------------------------------|---------------------------------------------|----------|
 | **Claude**  | Reasoning, orchestration, harness | the full pipeline, multi-band features, sub-agent fan-out | all |
-| **Codex**   | Focused code generation        | band-scoped implementation, tests, migrations | all but `rig` |
+| **Codex**   | Focused code generation, local hooks | band-scoped implementation, tests, migrations | all |
 | **Gemini**  | Requirements and gap analysis  | briefs, readiness review, audits              | all but `rig` |
 | **Copilot** | In-editor, model-agnostic      | implementation and fixes inside the IDE       | prompt templates |
 
@@ -343,8 +344,9 @@ each startup file, and leaves everything you wrote around it untouched.
 │   ├── commands/   survey brief shape worklist build audit patch pulse focus forge rig
 │   └── skills/     service interface store verify delivery design-review + the pipeline skills
 ├── .codex/
-│   ├── commands/   survey brief shape worklist build audit patch pulse focus forge
-│   └── skills/     service interface store verify delivery code-standard
+│   ├── commands/   survey brief shape worklist build audit patch pulse focus forge rig
+│   ├── skills/     service interface store verify delivery code-standard rig
+│   └── hooks.json  optional, written by rig
 ├── .gemini/
 │   ├── commands/   survey brief shape worklist build audit patch pulse focus forge
 │   └── skills/     service interface store verify delivery requirement-split

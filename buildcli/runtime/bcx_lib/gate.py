@@ -1,8 +1,8 @@
 """Hook handlers — the part that can say no.
 
-Claude Code runs these on PreToolUse / PostToolUse / Stop. A PreToolUse handler
-that exits 2 blocks the tool call and shows stderr to the model, which turns the
-band rule into a mechanism rather than a request.
+Claude Code and Codex run these on their lifecycle hook events. A PreToolUse
+handler that exits 2 blocks the tool call and shows stderr to the model, which
+turns the band rule into a mechanism rather than a request.
 
 Every handler fails open. A harness that bricks the session on its own bug is
 worse than no harness, so any unexpected error allows the call through.
@@ -77,17 +77,60 @@ def read_event():
         return {}
 
 
-def _tool_path(event):
+def _paths_from_patch(command):
+    """Files named by an apply_patch payload, best-effort and fail-open."""
+    if not isinstance(command, str):
+        return []
+    out = []
+    for line in command.splitlines():
+        m = re.match(r"^\*\*\* (?:Add|Delete|Update) File: (.+)$", line)
+        if not m:
+            m = re.match(r"^\*\*\* Move to: (.+)$", line)
+        if m:
+            out.append(m.group(1).strip())
+    return out
+
+
+def _tool_paths(event):
     ti = event.get("tool_input") or {}
+    out = []
     for key in ("file_path", "path", "notebook_path", "filePath"):
         v = ti.get(key)
         if isinstance(v, str) and v:
-            return v
-    return None
+            out.append(v)
+    # Codex reports apply_patch as tool_input.command. Parse the patch so the
+    # same write gate can judge the changed files without knowing the host.
+    out.extend(_paths_from_patch(ti.get("command")))
+
+    seen, unique = set(), []
+    for path in out:
+        if path not in seen:
+            unique.append(path)
+            seen.add(path)
+    return unique
+
+
+def _tool_path(event):
+    paths = _tool_paths(event)
+    return paths[0] if paths else None
+
+
+def _command_mentions_context(root, event):
+    """Whether a shell command tries to read the whole context file."""
+    command = (event.get("tool_input") or {}).get("command")
+    if not isinstance(command, str):
+        return False
+    haystack = command.replace(os.sep, "/")
+    rel = os.path.join(paths.STATE_DIR, paths.CONTEXT).replace(os.sep, "/")
+    dot_rel = "./" + rel
+    abs_path = os.path.join(root, paths.STATE_DIR, paths.CONTEXT).replace(os.sep, "/")
+    return rel in haystack or dot_rel in haystack or abs_path in haystack
 
 
 def _rel(root, path):
     try:
+        if not os.path.isabs(path):
+            path = os.path.join(root, path)
         return os.path.relpath(os.path.abspath(path), root).replace(os.sep, "/")
     except Exception:
         return path
@@ -149,6 +192,15 @@ def pre_read(root, event):
     if not (cfg["enabled"] and cfg["context_gate"]):
         return ALLOW
 
+    if _command_mentions_context(root, event):
+        return _deny(
+            "Blocked: reading the whole context file defeats band scoping.\n"
+            "Load exactly the band you need:\n"
+            "    bcx band <service|interface|store|verify|delivery>\n"
+            "For the shared header only (Metadata / Stack / Architecture):\n"
+            "    bcx header"
+        )
+
     path = _tool_path(event)
     if not path:
         return ALLOW
@@ -171,13 +223,9 @@ def pre_write(root, event):
     if not (cfg["enabled"] and cfg["write_gate"]):
         return ALLOW
 
-    path = _tool_path(event)
-    if not path:
+    target_paths = _tool_paths(event)
+    if not target_paths:
         return ALLOW
-
-    rel = _rel(root, path)
-    if rel.startswith("..") or rel.startswith(paths.STATE_DIR + "/") or rel.startswith("blueprints/"):
-        return ALLOW  # the framework's own state is not band-scoped
 
     # Identity comes from the environment and nowhere else — a hook event carries
     # no agent field, and guessing one would be worse than not knowing. When the
@@ -189,30 +237,39 @@ def pre_write(root, event):
     if not band:
         return ALLOW  # nothing this caller can be held to — nothing to enforce
 
-    if matches_band(root, rel, band) in (None, True):
-        return ALLOW
+    for path in target_paths:
+        rel = _rel(root, path)
+        if rel.startswith("..") or rel.startswith(paths.STATE_DIR + "/") or \
+                rel.startswith("blueprints/"):
+            continue  # the framework's own state is not band-scoped
 
-    # Only cross-band writes are blocked. A path that no band claims — docs,
-    # root config, scratch files — is not band-scoped territory, so it passes.
-    owner = [b for b in _bands_map(root) if matches_band(root, rel, b)]
-    if not owner:
-        return ALLOW
+        if matches_band(root, rel, band) in (None, True):
+            continue
 
-    return _deny(
-        "Blocked: %s belongs to the '%s' band, but the unit %s is in '%s'.\n"
-        "Cross-band work is a separate unit. Either flag it as a follow-up, or "
-        "close this unit and claim one in the other band:\n"
-        "    bcx done <unit>\n"
-        "    bcx next"
-        % (rel, owner[0],
-           "%s has claimed" % agent if agent else "currently claimed", band))
+        # Only cross-band writes are blocked. A path that no band claims — docs,
+        # root config, scratch files — is not band-scoped territory, so it passes.
+        owner = [b for b in _bands_map(root) if matches_band(root, rel, b)]
+        if not owner:
+            continue
+
+        return _deny(
+            "Blocked: %s belongs to the '%s' band, but the unit %s is in '%s'.\n"
+            "Cross-band work is a separate unit. Either flag it as a follow-up, or "
+            "close this unit and claim one in the other band:\n"
+            "    bcx done <unit>\n"
+            "    bcx next"
+            % (rel, owner[0],
+               "%s has claimed" % agent if agent else "currently claimed", band))
+
+    return ALLOW
 
 
 def post_tool(root, event):
-    path = _tool_path(event)
+    target_paths = _tool_paths(event)
     tool = event.get("tool_name") or "tool"
-    if path:
-        state.journal(root, "edit", "%-9s %s" % (tool, _rel(root, path)))
+    if target_paths:
+        for path in target_paths:
+            state.journal(root, "edit", "%-9s %s" % (tool, _rel(root, path)))
     else:
         cmd = (event.get("tool_input") or {}).get("command")
         if cmd and re.search(r"\b(test|lint|build)\b", cmd):

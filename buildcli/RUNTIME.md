@@ -143,18 +143,28 @@ bcx gate pre-read | pre-write | post | stop | session-start
 ```
 
 Hook handlers. They read the event JSON on stdin and communicate by exit code: `0` allows, `2`
-blocks and shows stderr to the model. Wired up by `rig --enforce`.
+blocks and shows stderr to the model. Wired up by `rig --enforce` for Claude Code and Codex.
 
 `stop` writes the checkpoint the next session reads: active blueprint, claimed units, how many units
 completed since the previous `STOP`, and the verify outcome. `session-start` prints the `resume`
-digest on stdout, which Claude Code adds as model-visible context — so a session opens knowing where
-the pipeline stands instead of having to ask. Neither can block; `session-start` is not a tool call,
-and there is nothing there worth refusing.
+digest on stdout, which Claude Code and Codex add as model-visible context — so a session opens
+knowing where the pipeline stands instead of having to ask. Neither can block; `session-start` is
+not a tool call, and there is nothing there worth refusing.
 
 The journal rotates in place. Past `journal_max_kb` the log becomes `session.1.log` and a fresh one
 starts. One generation is kept on purpose — this is a resume aid, not an archive.
 
 ## Configuration
+
+### Host hook files
+
+`rig --enforce` writes the native hook file for the agent that runs it:
+
+- Claude Code: `.claude/settings.json`
+- Codex: `.codex/hooks.json`
+
+Both call the same `.buildcli/runtime/bcx gate <name>` handlers and share
+`.buildcli/bands.json`, `.buildcli/enforce.json`, and `.buildcli/journal/`.
 
 ### `.buildcli/bands.json`
 
@@ -250,9 +260,9 @@ permissive.
 | Agent | Runtime | Blocking gates |
 |---|---|---|
 | Claude Code | yes | **yes** — PreToolUse hooks |
-| Codex | yes, via shell | no equivalent hook |
+| Codex | yes | **yes** — project-local Codex hooks |
 | Gemini | yes, via shell | no equivalent hook |
 | Copilot | yes, via shell | no equivalent hook |
 
 All four benefit from deterministic band extraction, real scheduling, and executable verification.
-Only Claude Code can enforce.
+Claude Code and Codex can also enforce read/write gates through lifecycle hooks.

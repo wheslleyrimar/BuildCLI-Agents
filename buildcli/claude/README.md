@@ -19,4 +19,6 @@ Startup file: `CLAUDE.md` — bootstrap writes the autoload block between the
 
 ## Strength
 
-Broad reasoning and orchestration. Claude carries the full command set, including `rig` — the only stage that touches Claude Code hooks and permissions — and is the only agent that fans `build` out to parallel sub-agents.
+Broad reasoning and orchestration. Claude carries the full command set, including the Claude
+version of `rig` for Claude Code hooks and permissions, and is the only agent that fans `build` out
+to parallel sub-agents.

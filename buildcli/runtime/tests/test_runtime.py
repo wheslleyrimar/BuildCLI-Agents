@@ -177,6 +177,10 @@ class TestGate(Base):
     def _event(self, path):
         return {"cwd": self.root, "tool_input": {"file_path": os.path.join(self.root, path)}}
 
+    def _patch_event(self, body):
+        return {"cwd": self.root, "tool_name": "apply_patch",
+                "tool_input": {"command": body}}
+
     def _configure(self):
         paths.write_text(paths.bands_map_path(self.root), json.dumps({
             "service": ["src/api/**"], "store": ["migrations/**"],
@@ -187,6 +191,11 @@ class TestGate(Base):
         self.assertEqual(
             gate.pre_read(self.root, self._event(".buildcli/context.md")), gate.BLOCK)
 
+    def test_codex_bash_context_read_is_blocked(self):
+        event = {"cwd": self.root, "tool_name": "Bash",
+                 "tool_input": {"command": "sed -n '1,40p' .buildcli/context.md"}}
+        self.assertEqual(gate.pre_read(self.root, event), gate.BLOCK)
+
     def test_other_reads_pass(self):
         self.assertEqual(gate.pre_read(self.root, self._event("src/api/x.py")), gate.ALLOW)
 
@@ -194,6 +203,18 @@ class TestGate(Base):
         self._configure()
         worklist.set_status(self.wl, "W01", "in_progress")  # store
         self.assertEqual(gate.pre_write(self.root, self._event("src/api/x.py")), gate.BLOCK)
+
+    def test_codex_apply_patch_cross_band_write_is_blocked(self):
+        self._configure()
+        worklist.set_status(self.wl, "W01", "in_progress")  # store
+        patch = "*** Begin Patch\n*** Update File: src/api/x.py\n@@\n-x\n+y\n*** End Patch\n"
+        self.assertEqual(gate.pre_write(self.root, self._patch_event(patch)), gate.BLOCK)
+
+    def test_codex_apply_patch_in_band_write_passes(self):
+        self._configure()
+        worklist.set_status(self.wl, "W01", "in_progress")  # store
+        patch = "*** Begin Patch\n*** Add File: migrations/1.sql\n+select 1;\n*** End Patch\n"
+        self.assertEqual(gate.pre_write(self.root, self._patch_event(patch)), gate.ALLOW)
 
     def test_in_band_write_passes(self):
         self._configure()
@@ -225,6 +246,21 @@ class TestGate(Base):
         for bad in ({}, {"cwd": "/nope"}, {"tool_input": {}}, {"tool_input": {"file_path": ""}}):
             self.assertEqual(gate.pre_write(self.root, bad), gate.ALLOW)
             self.assertEqual(gate.pre_read(self.root, bad), gate.ALLOW)
+
+    def test_post_tool_journals_codex_apply_patch_files(self):
+        patch = (
+            "*** Begin Patch\n"
+            "*** Update File: src/api/x.py\n"
+            "@@\n"
+            "-x\n"
+            "+y\n"
+            "*** Move to: src/api/y.py\n"
+            "*** End Patch\n"
+        )
+        self.assertEqual(gate.post_tool(self.root, self._patch_event(patch)), gate.ALLOW)
+        detail = [e["detail"] for e in state.journal_entries(self.root)]
+        self.assertTrue(any("src/api/x.py" in d for d in detail))
+        self.assertTrue(any("src/api/y.py" in d for d in detail))
 
 
 class TestShim(unittest.TestCase):

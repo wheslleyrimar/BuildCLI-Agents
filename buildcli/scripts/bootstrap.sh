@@ -415,6 +415,7 @@ $(band_lines ".codex/skills")
 
 Also available:
 - .codex/skills/code-standard/SKILL.md  → implementation quality gates and validation evidence
+- .codex/skills/rig/SKILL.md            → Codex hooks, band path map, and audit journal
 
 Startup behavior (required):
 1. Run \`/survey\` first to create or refresh \`.buildcli/context.md\`.
@@ -436,6 +437,7 @@ Navigation:
 - \`/pulse\`  → pipeline snapshot: stage, unit counts, next step
 - \`/focus\`  → move the active blueprint pointer
 - \`/patch\`  → minimal defect fix; add --trace for a defect blueprint
+- \`/rig\`    → configure Codex hooks and the audit journal
 
 Runtime (always prefer it over reading state files by hand):
 - \`.buildcli/runtime/bcx band <name>\`   — load exactly one context band
@@ -450,12 +452,14 @@ Runtime (always prefer it over reading state files by hand):
 - \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
-It needs python3. Blocking enforcement hooks are Claude Code only; here the runtime
-gives you deterministic band extraction, real scheduling, and executable verification.
+It needs python3. With \`/rig --enforce\`, Codex hooks call \`bcx gate\` to block raw
+context reads and cross-band writes. Without hooks, the runtime still gives you
+deterministic band extraction, real scheduling, and executable verification.
 
 Shared state:
 - \`.buildcli/context.md\`   — project context, split into [band:*] blocks
 - \`.buildcli/active\`       — path to the active blueprint directory
+- \`.codex/hooks.json\`      — Codex lifecycle hooks written by \`/rig\`
 - \`blueprints/<kind>/<slug>/\` — brief.md, shape.md, worklist.md, audit.md
 
 Multi-agent relay:
@@ -523,8 +527,9 @@ Runtime (always prefer it over reading state files by hand):
 - \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
-It needs python3. Blocking enforcement hooks are Claude Code only; here the runtime
-gives you deterministic band extraction, real scheduling, and executable verification.
+It needs python3. Claude Code and Codex can add blocking hooks with \`rig --enforce\`;
+Gemini uses the runtime for deterministic band extraction, real scheduling, and
+executable verification.
 
 Shared state:
 - \`.buildcli/context.md\`   — project context, split into [band:*] blocks

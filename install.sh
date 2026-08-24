@@ -232,7 +232,7 @@ stage "shape           " "architecture and a phased plan"
 stage "worklist        " "atomic units, dependencies, band tags"
 stage "build           " "execute the worklist band by band"
 stage "audit           " "check the build against the brief"
-printf '    %sany time: pulse · focus · patch   ·   Claude Code: rig --enforce%s\n' \
+printf '    %sany time: pulse · focus · patch   ·   hooks: rig --enforce%s\n' \
   "$C_DIM" "$C_RESET"
 
 printf '\n  %sAnd in your terminal%s\n' "$C_BOLD" "$C_RESET"

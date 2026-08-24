@@ -47,8 +47,9 @@ Runtime (always prefer it over reading state files by hand):
 - `.buildcli/runtime/bcx doctor`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare `bcx` — it is project-local and not on PATH.
-It needs python3. Blocking enforcement hooks are Claude Code only; here the runtime
-gives you deterministic band extraction, real scheduling, and executable verification.
+It needs python3. Claude Code and Codex can add blocking hooks with `rig --enforce`;
+Gemini uses the runtime for deterministic band extraction, real scheduling, and
+executable verification.
 
 Shared state:
 - `.buildcli/context.md`   — project context, split into [band:*] blocks
