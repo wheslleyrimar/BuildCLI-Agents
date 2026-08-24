@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate the Claude pipeline skills from their command files.
+"""Generate pipeline skills from their command files.
 
-A pipeline stage is defined once, in `claude/commands/<name>.md`. The matching
-`claude/skills/<name>/SKILL.md` is a derived view of that file: same body, a
-skill frontmatter instead of a command frontmatter, and slash-prefixed command
-references rewritten as bare skill names.
+A pipeline stage is defined once, in `<agent>/commands/<name>.md`. The matching
+`<agent>/skills/<name>/SKILL.md` is a derived view of that file: same body, a
+skill frontmatter instead of a command frontmatter, and agent-specific command
+references rewritten to the way that agent invokes skills.
 
 There is deliberately no table of descriptions in here. Each command carries its
 own `skill_description` and `skill_title` in frontmatter, because a second copy
@@ -26,11 +26,28 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.dirname(HERE)
-SRC = os.path.join(KIT, "claude", "commands")
-DST = os.path.join(KIT, "claude", "skills")
 
 # Skills authored by hand: band skills, plus specialties that have no command.
-NOT_GENERATED = {"service", "interface", "store", "verify", "delivery", "design-review"}
+AGENTS = {
+    "claude": {
+        "src": os.path.join(KIT, "claude", "commands"),
+        "dst": os.path.join(KIT, "claude", "skills"),
+        "not_generated": {
+            "service", "interface", "store", "verify", "delivery", "design-review"
+        },
+        "require_skill_description": True,
+        "command_ref": lambda name: name,
+    },
+    "codex": {
+        "src": os.path.join(KIT, "codex", "commands"),
+        "dst": os.path.join(KIT, "codex", "skills"),
+        "not_generated": {
+            "service", "interface", "store", "verify", "delivery", "code-standard"
+        },
+        "require_skill_description": False,
+        "command_ref": lambda name: "$" + name,
+    },
+}
 
 ARGUMENT_FIELD = "arguments"
 OUTPUT_FIELD = "output"
@@ -59,17 +76,21 @@ def field(frontmatter, key, path, required=False):
     return None
 
 
-def command_names():
-    return sorted(f[:-3] for f in os.listdir(SRC) if f.endswith(".md"))
+def command_names(src):
+    return sorted(f[:-3] for f in os.listdir(src) if f.endswith(".md"))
 
 
-def render(name):
+def render(agent, name):
     """Build the SKILL.md text for one command."""
-    path = os.path.join(SRC, name + ".md")
+    cfg = AGENTS[agent]
+    path = os.path.join(cfg["src"], name + ".md")
     with open(path, encoding="utf-8") as fh:
         frontmatter, body = split_frontmatter(fh.read(), path)
 
-    description = field(frontmatter, "skill_description", path, required=True)
+    description = field(frontmatter, "skill_description", path,
+                        required=cfg["require_skill_description"])
+    if not description:
+        description = field(frontmatter, "description", path, required=True)
     title = field(frontmatter, "skill_title", path) or name.capitalize()
     arguments = field(frontmatter, ARGUMENT_FIELD, path)
     output = field(frontmatter, OUTPUT_FIELD, path)
@@ -78,9 +99,11 @@ def render(name):
     body = re.sub(r"\A\n*## User Input\n\n```text\n\$ARGUMENTS\n```\n\n", "", body)
     body = body.lstrip("\n")
 
-    # A skill is invoked by name, so `/shape` becomes `shape`.
-    others = "|".join(command_names())
-    body = re.sub(r"`/(%s)`" % others, lambda m: "`%s`" % m.group(1), body)
+    # Rewrite exact command references to the agent's skill invocation form.
+    others = "|".join(command_names(cfg["src"]))
+    body = re.sub(r"`/(%s)`" % others,
+                  lambda m: "`%s`" % cfg["command_ref"](m.group(1)),
+                  body)
 
     parts = ["---", "name: %s" % name, "description: %s" % description, "---", "",
              "# %s" % title, "",
@@ -94,47 +117,64 @@ def render(name):
     return text if text.endswith("\n") else text + "\n"
 
 
-def target_path(name):
-    return os.path.join(DST, name, "SKILL.md")
+def target_path(agent, name):
+    return os.path.join(AGENTS[agent]["dst"], name, "SKILL.md")
+
+
+def selected_agents(name):
+    if name == "all":
+        return sorted(AGENTS)
+    return [name]
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--check", action="store_true",
                     help="verify the skills match their commands; write nothing")
+    ap.add_argument("--agent", choices=sorted(AGENTS) + ["all"], default="all",
+                    help="agent tree to generate (default: all)")
     args = ap.parse_args(argv)
 
-    stale, written = [], []
-    for name in command_names():
-        try:
-            want = render(name)
-        except GenerationError as exc:
-            sys.stderr.write("error: %s\n" % exc)
-            return 2
+    stale, written, orphans = [], [], []
+    checked = 0
 
-        dest = target_path(name)
-        have = None
-        if os.path.isfile(dest):
-            with open(dest, encoding="utf-8") as fh:
-                have = fh.read()
+    for agent in selected_agents(args.agent):
+        cfg = AGENTS[agent]
+        names = command_names(cfg["src"])
+        checked += len(names)
 
-        if have == want:
-            continue
-        if args.check:
-            stale.append("%s (%s)" % (name, "missing" if have is None else "out of date"))
-        else:
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            with open(dest, "w", encoding="utf-8") as fh:
-                fh.write(want)
-            written.append(name)
+        for name in names:
+            try:
+                want = render(agent, name)
+            except GenerationError as exc:
+                sys.stderr.write("error: %s\n" % exc)
+                return 2
 
-    # A skill with no command and no hand-authored exemption is an orphan.
-    generated = set(command_names())
-    orphans = sorted(
-        d for d in os.listdir(DST)
-        if os.path.isdir(os.path.join(DST, d))
-        and d not in generated and d not in NOT_GENERATED
-    )
+            dest = target_path(agent, name)
+            have = None
+            if os.path.isfile(dest):
+                with open(dest, encoding="utf-8") as fh:
+                    have = fh.read()
+
+            if have == want:
+                continue
+            label = "%s/%s" % (agent, name)
+            if args.check:
+                stale.append("%s (%s)" % (label, "missing" if have is None else "out of date"))
+            else:
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with open(dest, "w", encoding="utf-8") as fh:
+                    fh.write(want)
+                written.append((agent, name))
+
+        # A skill with no command and no hand-authored exemption is an orphan.
+        generated = set(names)
+        orphans.extend(
+            "%s/%s" % (agent, d)
+            for d in sorted(os.listdir(cfg["dst"]))
+            if os.path.isdir(os.path.join(cfg["dst"], d))
+            and d not in generated and d not in cfg["not_generated"]
+        )
 
     if args.check:
         if stale or orphans:
@@ -144,13 +184,13 @@ def main(argv=None):
                 sys.stderr.write("orphan skill (no command, not hand-authored): %s\n" % o)
             sys.stderr.write("\nRun: python3 buildcli/scripts/generate-skills.py\n")
             return 1
-        print("skills are in sync with their commands (%d checked)" % len(generated))
+        print("skills are in sync with their commands (%d checked)" % checked)
         return 0
 
-    for name in written:
-        print("  wrote %s" % os.path.relpath(target_path(name), KIT))
+    for agent, name in written:
+        print("  wrote %s" % os.path.relpath(target_path(agent, name), KIT))
     if not written:
-        print("  already up to date (%d skills)" % len(generated))
+        print("  already up to date (%d skills)" % checked)
     for o in orphans:
         sys.stderr.write("warning: orphan skill %s\n" % o)
     return 0

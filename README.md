@@ -50,7 +50,7 @@ dispatcher on your PATH — the only file it would write outside the target proj
 answers yes up front, `--no-shim` answers no, and with no terminal to ask on it skips the
 question. `--verbose` lists every file instead of the summary.
 
-Then open the project in your agent and run `survey`.
+Then open the project in your agent and run `survey` (Claude/Gemini) or `$survey` (Codex).
 
 ---
 
@@ -102,7 +102,7 @@ to make sense is a band that was written wrong.
 ├── context.md            ← written by survey
 ├── active                ← one line: "blueprints/features/checkout-flow"
 ├── journal/session.log   ← audit trail, written by rig's hooks
-└── runtime/bcx           ← `bcx gate stop` closes every Claude Code session
+└── runtime/bcx           ← `bcx gate stop` closes every hooked session
 
 blueprints/
 ├── features/
@@ -139,24 +139,27 @@ Add your own at any time with `forge <name> <band>`.
 
 ### 4. The pipeline
 
+Claude and Gemini expose these as slash commands. Codex installs the same workflows as generated
+skills, so use `$survey`, `$brief`, `$shape`, and so on. Copilot gets prompt templates.
+
 | Stage      | Invoke      | Input                | Output                        |
 |------------|-------------|----------------------|-------------------------------|
-| Survey     | `/survey`   | the repository       | `.buildcli/context.md`           |
-| Brief      | `/brief`    | a description        | `brief.md` + moves `active`   |
-| Shape      | `/shape`    | auto, from `active`  | `shape.md`                    |
-| Worklist   | `/worklist` | auto, from `active`  | `worklist.md`                 |
-| Build      | `/build`    | auto, from `active`  | code + a build report         |
-| Audit      | `/audit`    | auto, from `active`  | `audit.md`                    |
+| Survey     | `survey`    | the repository       | `.buildcli/context.md`           |
+| Brief      | `brief`     | a description        | `brief.md` + moves `active`   |
+| Shape      | `shape`     | auto, from `active`  | `shape.md`                    |
+| Worklist   | `worklist`  | auto, from `active`  | `worklist.md`                 |
+| Build      | `build`     | auto, from `active`  | code + a build report         |
+| Audit      | `audit`     | auto, from `active`  | `audit.md`                    |
 
 Plus, at any point:
 
 | Command   | Does                                                            |
 |-----------|-----------------------------------------------------------------|
-| `/pulse`  | read-only snapshot: stage, unit counts, gates, next step         |
-| `/focus`  | list blueprints, or move the active pointer to one               |
-| `/patch`  | minimal defect fix; `--trace` files a defect blueprint           |
-| `/forge`  | write a project-specific skill from real source patterns         |
-| `/rig`    | Claude Code or Codex hooks, permissions where supported, audit journal |
+| `pulse`   | read-only snapshot: stage, unit counts, gates, next step         |
+| `focus`   | list blueprints, or move the active pointer to one               |
+| `patch`   | minimal defect fix; `--trace` files a defect blueprint           |
+| `forge`   | write a project-specific skill from real source patterns         |
+| `rig`     | Claude Code or Codex hooks, permissions where supported, audit journal |
 
 ### 5. The runtime — what makes it a harness, not a convention
 
@@ -187,7 +190,7 @@ Three things stop being advisory:
 
 ### 6. Enforcement (Claude Code and Codex)
 
-`rig --enforce` writes hooks that can say no:
+`rig --enforce` writes hooks that can say no (`$rig --enforce` in Codex):
 
 | Hook | Effect |
 |---|---|
@@ -269,7 +272,7 @@ patch <describe> <file> --trace    the same fix, plus a tracked defect blueprint
 | Agent       | Strength                       | Best at                                     | Commands |
 |-------------|--------------------------------|---------------------------------------------|----------|
 | **Claude**  | Reasoning, orchestration, harness | the full pipeline, multi-band features, sub-agent fan-out | all |
-| **Codex**   | Focused code generation, local hooks | band-scoped implementation, tests, migrations | all |
+| **Codex**   | Focused code generation, local hooks | band-scoped implementation, tests, migrations | pipeline skills (`$name`) |
 | **Gemini**  | Requirements and gap analysis  | briefs, readiness review, audits              | all but `rig` |
 | **Copilot** | In-editor, model-agnostic      | implementation and fixes inside the IDE       | prompt templates |
 
@@ -292,12 +295,13 @@ patch <describe> <file> --trace    the same fix, plus a tracked defect blueprint
 | Agent   | Commands                  | Skills                        | Startup file                      |
 |---------|---------------------------|-------------------------------|-----------------------------------|
 | Claude  | `.claude/commands/`       | `.claude/skills/`             | `CLAUDE.md`                       |
-| Codex   | `.codex/commands/`        | `.codex/skills/`              | `AGENTS.md`                       |
+| Codex   | `.codex/commands/` ³      | `.codex/skills/`              | `AGENTS.md`                       |
 | Gemini  | `.gemini/commands/`       | `.gemini/skills/`             | `GEMINI.md`                       |
 | Copilot | `.copilot/commands/` ¹    | `.github/skills/` ²           | `.github/copilot-instructions.md` |
 
 ¹ Prompt templates — Copilot has no native slash commands.
 ² Auto-discovered by Copilot Agent Mode in VS Code.
+³ Source prompt files; Codex users invoke the generated pipeline skills with `$name`.
 
 Shared by all of them: `.buildcli/context.md`, `.buildcli/active`, `blueprints/`.
 
@@ -345,7 +349,7 @@ each startup file, and leaves everything you wrote around it untouched.
 │   └── skills/     service interface store verify delivery design-review + the pipeline skills
 ├── .codex/
 │   ├── commands/   survey brief shape worklist build audit patch pulse focus forge rig
-│   ├── skills/     service interface store verify delivery code-standard rig
+│   ├── skills/     service interface store verify delivery code-standard + the pipeline skills
 │   └── hooks.json  optional, written by rig
 ├── .gemini/
 │   ├── commands/   survey brief shape worklist build audit patch pulse focus forge

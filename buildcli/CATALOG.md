@@ -17,24 +17,27 @@ buildcli/
 
 ## Pipeline
 
+Claude and Gemini invoke these as slash commands (`/survey`). Codex invokes the generated pipeline
+skills with `$` (`$survey`). Copilot uses prompt templates.
+
 | File          | Invoke as    | Input                       | Output                                 | When |
 |---------------|--------------|-----------------------------|----------------------------------------|------|
-| `survey.md`   | `/survey`    | the repository              | `.buildcli/context.md`                    | once per project, and whenever the stack shifts |
-| `brief.md`    | `/brief`     | a feature description       | `blueprints/<kind>/<slug>/brief.md`    | once per piece of work |
-| `shape.md`    | `/shape`     | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/shape.md`    | after brief |
-| `worklist.md` | `/worklist`  | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/worklist.md` | after shape |
-| `build.md`    | `/build`     | auto, from `.buildcli/active`  | code changes + a build report          | after worklist |
-| `audit.md`    | `/audit`     | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/audit.md`    | after build |
-| `patch.md`    | `/patch`     | a defect description        | a fix + root cause                     | per defect; `--trace` files a blueprint |
-| `forge.md`    | `/forge`     | skill name + band           | `<agent>/skills/<name>/SKILL.md`       | when a project pattern deserves a skill |
+| `survey.md`   | `survey`     | the repository              | `.buildcli/context.md`                    | once per project, and whenever the stack shifts |
+| `brief.md`    | `brief`      | a feature description       | `blueprints/<kind>/<slug>/brief.md`    | once per piece of work |
+| `shape.md`    | `shape`      | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/shape.md`    | after brief |
+| `worklist.md` | `worklist`   | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/worklist.md` | after shape |
+| `build.md`    | `build`      | auto, from `.buildcli/active`  | code changes + a build report          | after worklist |
+| `audit.md`    | `audit`      | auto, from `.buildcli/active`  | `blueprints/<kind>/<slug>/audit.md`    | after build |
+| `patch.md`    | `patch`      | a defect description        | a fix + root cause                     | per defect; `--trace` files a blueprint |
+| `forge.md`    | `forge`      | skill name + band           | `<agent>/skills/<name>/SKILL.md`       | when a project pattern deserves a skill |
 
 ## Navigation and ops
 
 | File        | Invoke as  | Input                  | Output                                          | When |
 |-------------|------------|------------------------|-------------------------------------------------|------|
-| `pulse.md`  | `/pulse`   | none                   | inline snapshot, nothing written                | any time |
-| `focus.md`  | `/focus`   | a blueprint slug       | updated `.buildcli/active`                         | switching between blueprints |
-| `rig.md`    | `/rig`     | `--minimal` \| `--full` \| `--enforce` | `.claude/settings.json` or `.codex/hooks.json`, `.buildcli/bands.json`, `.buildcli/enforce.json`, `.buildcli/journal/` | once per project (Claude Code or Codex) |
+| `pulse.md`  | `pulse`    | none                   | inline snapshot, nothing written                | any time |
+| `focus.md`  | `focus`    | a blueprint slug       | updated `.buildcli/active`                         | switching between blueprints |
+| `rig.md`    | `rig`      | `--minimal` \| `--full` \| `--enforce` | `.claude/settings.json` or `.codex/hooks.json`, `.buildcli/bands.json`, `.buildcli/enforce.json`, `.buildcli/journal/` | once per project (Claude Code or Codex) |
 
 ### The three rig levels
 
@@ -101,6 +104,7 @@ third configures lifecycle hooks that Copilot does not have.
 | Skill                | Agent  | Purpose |
 |----------------------|--------|---------|
 | `design-review`      | Claude | architecture tradeoffs and risk, before implementation |
+| pipeline skills      | Codex  | `$survey`, `$brief`, `$shape`, `$worklist`, `$build`, `$audit`, `$pulse`, `$focus`, `$patch`, `$forge`, `$rig` |
 | `code-standard`      | Codex  | implementation quality gates and validation evidence |
 | `rig`                | Codex  | Codex hooks, band path map, and audit journal |
 | `requirement-split`  | Gemini | break a broad request into prioritized requirements |

@@ -1,9 +1,17 @@
 ---
+name: pulse
 description: Read-only pipeline snapshot — active blueprint, stage, unit counts, next step.
-arguments: none
-output: Inline report. No files written.
 ---
 
+# Pulse
+
+## Arguments
+
+None.
+
+## Output
+
+Inline report. No files written.
 ## Steps
 
 1. Ask the runtime — it is the source of truth for stage, unit counts, and band population:

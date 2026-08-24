@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The Claude pipeline skills are generated from their command files.
+      # The Claude and Codex pipeline skills are generated from their command files.
       # This is the check that would have caught `.prism/` surviving a rename.
       - name: Skills match their commands
         run: python3 buildcli/scripts/generate-skills.py --check
@@ -79,12 +79,14 @@ jobs:
       - name: Runtime is installed and runs
         run: /tmp/target/.buildcli/runtime/bcx --version
 
-      - name: Codex rig is installed
+      - name: Codex pipeline skills are installed
         run: |
           test -f /tmp/target/.codex/commands/rig.md
+          test -f /tmp/target/.codex/skills/survey/SKILL.md
           test -f /tmp/target/.codex/skills/rig/SKILL.md
-          grep -q '/rig' /tmp/target/AGENTS.md
-          echo "codex rig: confirmed"
+          grep -q '\$survey' /tmp/target/AGENTS.md
+          grep -q '\$rig' /tmp/target/AGENTS.md
+          echo "codex pipeline skills: confirmed"
 
       # The summary line is the only thing most people read, so its count has to
       # be true. A file installed without a tick() call would drift silently.

@@ -12,8 +12,8 @@ right folders and writes the autoload block into each startup file.
 │   ├── commands/                 ← loaded natively by Claude Code
 │   └── skills/
 ├── .codex/
-│   ├── commands/                 ← loaded natively by Codex
-│   ├── skills/
+│   ├── commands/                 ← source prompts, generated into pipeline skills
+│   ├── skills/                   ← invoked as $survey, $brief, ...
 │   └── hooks.json                ← optional, written by Codex rig
 ├── .gemini/
 │   ├── commands/                 ← loaded natively by Gemini
@@ -43,12 +43,13 @@ The `buildcli/` kit folder stays in this source repository. It is never copied i
 | Agent   | Commands                  | Skills                        | Startup file                     |
 |---------|---------------------------|-------------------------------|----------------------------------|
 | Claude  | `.claude/commands/*.md`   | `.claude/skills/*/SKILL.md`   | `CLAUDE.md`                      |
-| Codex   | `.codex/commands/*.md`    | `.codex/skills/*/SKILL.md`    | `AGENTS.md`                      |
+| Codex   | `.codex/commands/*.md` ³  | `.codex/skills/*/SKILL.md`    | `AGENTS.md`                      |
 | Gemini  | `.gemini/commands/*.md`   | `.gemini/skills/*/SKILL.md`   | `GEMINI.md`                      |
 | Copilot | `.copilot/commands/*.md` ¹| `.github/skills/*/SKILL.md` ² | `.github/copilot-instructions.md`|
 
 ¹ Copilot has no native slash commands. These files are prompt templates — open one, paste it into Copilot Chat.
 ² Skills under `.github/skills/` are auto-discovered by Copilot Agent Mode in VS Code. In regular chat, paste the content by hand.
+³ Codex uses these as source prompts; the same workflows are generated into skills and invoked as `$name`.
 
 ## Source paths (this repository)
 
@@ -64,7 +65,7 @@ The `buildcli/` kit folder stays in this source repository. It is never copied i
 1. Bootstrap copies (or symlinks) the source files into the native folders at the project root.
 2. Each runtime scans only its own folder.
 3. Skills always live at `skills/<name>/SKILL.md`.
-4. A command file is invoked by its filename: `survey.md` → `/survey`.
+4. Claude and Gemini command files are invoked by filename: `survey.md` → `/survey`. Codex pipeline command files are generated into skills: `survey.md` → `$survey`.
 5. The autoload block in each startup file tells the agent the pipeline order, the band rules, and where the shared state lives. Re-running bootstrap rewrites the block in place and leaves everything around it alone.
 
 ## Agent strengths

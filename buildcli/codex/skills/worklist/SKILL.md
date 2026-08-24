@@ -1,15 +1,17 @@
 ---
+name: worklist
 description: Break a shape into atomic, dependency-ordered units, each tagged with the band that owns it.
-arguments: (optional) Blueprint directory path. Omitted → reads .buildcli/active.
-output: blueprints/<kind>/<slug>/worklist.md
 ---
 
-## User Input
+# Worklist
 
-```text
-$ARGUMENTS
-```
+## Arguments
 
+(optional) Blueprint directory path. Omitted → reads .buildcli/active.
+
+## Output
+
+blueprints/<kind>/<slug>/worklist.md.
 ## Steps
 
 1. Resolve the blueprint: arguments if given, otherwise `.buildcli/active`. Missing → stop and ask for `$brief`.

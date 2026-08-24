@@ -1,15 +1,17 @@
 ---
+name: build
 description: Execute units from the worklist, one band at a time.
-arguments: (optional) Blueprint directory path, band filter, or unit ID. Omitted → reads .buildcli/active.
-output: Code changes per unit
 ---
 
-## User Input
+# Build
 
-```text
-$ARGUMENTS
-```
+## Arguments
 
+(optional) Blueprint directory path, band filter, or unit ID. Omitted → reads .buildcli/active.
+
+## Output
+
+Code changes per unit.
 ## Steps
 
 1. Resolve the blueprint: arguments if given, otherwise `.buildcli/active`. Missing → stop and ask for `$brief`.

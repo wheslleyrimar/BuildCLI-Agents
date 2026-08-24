@@ -1,15 +1,17 @@
 ---
+name: shape
 description: Turn an approved brief into a phased technical plan with milestones, risks, and quality gates.
-arguments: (optional) Blueprint directory path. Omitted → reads .buildcli/active.
-output: blueprints/<kind>/<slug>/shape.md
 ---
 
-## User Input
+# Shape
 
-```text
-$ARGUMENTS
-```
+## Arguments
 
+(optional) Blueprint directory path. Omitted → reads .buildcli/active.
+
+## Output
+
+blueprints/<kind>/<slug>/shape.md.
 ## Steps
 
 1. Resolve the blueprint: arguments if given, otherwise `.buildcli/active`. Missing → stop and ask for `$brief`.

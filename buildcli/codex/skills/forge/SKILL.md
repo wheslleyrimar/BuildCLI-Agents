@@ -1,15 +1,17 @@
 ---
+name: forge
 description: Create or refresh a project-specific skill from this repository's real patterns.
-arguments: Skill name, optionally followed by a band (service|interface|store|verify|delivery|custom).
-output: .codex/skills/<name>/SKILL.md
 ---
 
-## User Input
+# Forge
 
-```text
-$ARGUMENTS
-```
+## Arguments
 
+Skill name, optionally followed by a band (service|interface|store|verify|delivery|custom).
+
+## Output
+
+.codex/skills/<name>/SKILL.md.
 ## Steps
 
 1. Parse the skill name and band. Band omitted → infer from the name, or ask.
