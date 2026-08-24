@@ -206,6 +206,10 @@ install_runtime() {
   fi
   if [[ -n "$rev" ]]; then
     printf '%s %s\n' "$rev" "$when" > "$dest/BUILD"
+    # Counted like any other installed file. The bootstrap CI job asserts that
+    # the reported total matches what is on disk, and it is right to: a file the
+    # installer writes without saying so is a file nobody knows to look for.
+    tick "runtime" "$dest/BUILD"
   else
     rm -f "$dest/BUILD"   # no git, no honest answer — say nothing rather than lie
   fi
