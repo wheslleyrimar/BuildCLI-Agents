@@ -21,6 +21,20 @@ AGENT_HELP = ("identity of the calling agent (default: $BCX_AGENT_ID). "
               "them apart")
 
 
+def version_string():
+    """What `bcx --version` prints.
+
+    The number alone cannot tell two installs apart: the runtime is copied into
+    each project, so three of them can report the same version while one is
+    months behind. The build stamp, written at install time, is what actually
+    answers "which copy is this". It is absent when the runtime was never
+    installed by bootstrap — running out of the kit's own tree, say — and then
+    the number stands alone rather than pretending to a precision it lacks.
+    """
+    stamp = paths.build_stamp()
+    return "bcx %s (%s)" % (__version__, stamp) if stamp else "bcx %s" % __version__
+
+
 def _out(obj, as_json):
     if as_json:
         print(json.dumps(obj, indent=2, sort_keys=True))
@@ -606,7 +620,7 @@ def build_parser():
     p = argparse.ArgumentParser(
         prog="bcx",
         description="BuildCLI Agents runtime — deterministic context, scheduling, enforcement.")
-    p.add_argument("--version", action="version", version="bcx %s" % __version__)
+    p.add_argument("--version", action="version", version=version_string())
     sub = p.add_subparsers(dest="cmd")
 
     def add(name, fn, help_text, needs_root=True):

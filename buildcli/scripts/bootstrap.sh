@@ -191,6 +191,25 @@ install_runtime() {
   cp "$src/bcx" "$dest/bcx"
   chmod +x "$dest/bcx"
   find "$dest" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+
+  # Stamp which kit revision this copy came from. The runtime cannot work this
+  # out later: it is copied into the target project, so asking git from there
+  # reports the target's history, not the kit's. Written outside bcx_lib/ so
+  # `doctor`'s stale-runtime check does not read it as a drifted module.
+  local rev="" when=""
+  if command -v git >/dev/null 2>&1 && git -C "$KIT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    rev="$(git -C "$KIT_ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+    when="$(git -C "$KIT_ROOT" log -1 --format=%cs 2>/dev/null || true)"
+    if [[ -n "$rev" ]] && ! git -C "$KIT_ROOT" diff --quiet HEAD 2>/dev/null; then
+      rev="$rev-dirty"   # installed from a tree with uncommitted changes
+    fi
+  fi
+  if [[ -n "$rev" ]]; then
+    printf '%s %s\n' "$rev" "$when" > "$dest/BUILD"
+  else
+    rm -f "$dest/BUILD"   # no git, no honest answer — say nothing rather than lie
+  fi
+
   tick "runtime" "$dest/bcx"
   # bcx_lib ships as a package. Its modules count toward the total, and get
   # listed like anything else under --verbose.

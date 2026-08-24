@@ -1909,5 +1909,61 @@ class TestWrappedUnitFields(Base):
         self.assertEqual(before.count("- Check:"), after.count("- Check:"))
 
 
+class TestVersionAndBuildStamp(unittest.TestCase):
+    """`bcx --version` has to distinguish two copies, not just name a release.
+
+    The runtime is copied into every project, so three installs can report the
+    same number while one is months behind. The stamp is what actually answers
+    "which copy is this", and it is written at install time because the runtime
+    cannot ask git itself — from inside a target project, git would answer about
+    the target's history, not the kit's.
+    """
+
+    def setUp(self):
+        self.runtime = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.runtime, "bcx_lib"))
+        self._real = paths.runtime_dir
+        paths.runtime_dir = lambda: self.runtime
+
+    def tearDown(self):
+        paths.runtime_dir = self._real
+        shutil.rmtree(self.runtime, ignore_errors=True)
+
+    def _write(self, text):
+        with open(os.path.join(self.runtime, paths.BUILD_STAMP), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    def test_the_version_is_a_three_part_number(self):
+        self.assertRegex(cli.__version__, r"^\d+\.\d+\.\d+$")
+
+    def test_no_stamp_gives_the_number_alone(self):
+        self.assertEqual(cli.version_string(), "bcx %s" % cli.__version__)
+
+    def test_a_stamp_is_reported_beside_the_number(self):
+        self._write("abc1234 2026-08-24\n")
+        self.assertEqual(cli.version_string(),
+                         "bcx %s (abc1234 2026-08-24)" % cli.__version__)
+
+    def test_an_empty_stamp_is_treated_as_absent(self):
+        self._write("   \n")
+        self.assertEqual(cli.version_string(), "bcx %s" % cli.__version__)
+
+    def test_an_unreadable_stamp_does_not_raise(self):
+        os.makedirs(os.path.join(self.runtime, paths.BUILD_STAMP))  # a directory
+        self.assertIsNone(paths.build_stamp())
+        self.assertEqual(cli.version_string(), "bcx %s" % cli.__version__)
+
+    def test_a_dirty_stamp_survives_verbatim(self):
+        # bootstrap marks an install made from a tree with uncommitted changes.
+        self._write("abc1234-dirty 2026-08-24\n")
+        self.assertIn("-dirty", cli.version_string())
+
+    def test_the_stamp_lives_outside_the_module_directory(self):
+        # Inside bcx_lib/ it would read as a drifted module to `stale_runtime`.
+        self.assertEqual(os.path.dirname(
+            os.path.join(paths.runtime_dir(), paths.BUILD_STAMP)), self.runtime)
+        self.assertFalse(paths.BUILD_STAMP.endswith(".py"))
+
+
 if __name__ == "__main__":
     unittest.main()

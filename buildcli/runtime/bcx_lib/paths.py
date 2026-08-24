@@ -18,6 +18,10 @@ CLAIMS = "claims"
 CLAIM_SUFFIX = ".claim"
 WORKLIST_LOCK = ".worklist.lock"
 
+# Which kit revision this copy of the runtime came from. Deliberately not a .py
+# file, and deliberately not inside bcx_lib/ — see build_stamp().
+BUILD_STAMP = "BUILD"
+
 BANDS = ("service", "interface", "store", "verify", "delivery")
 
 # The switch file, with every key defaulted. It lives here rather than in gate.py
@@ -84,6 +88,33 @@ def journal_path(root):
 
 def journal_prev_path(root):
     return os.path.join(root, STATE_DIR, JOURNAL_PREV)
+
+
+def runtime_dir():
+    """The directory this runtime is executing from.
+
+    Resolved from `__file__`, not from the project root, because the two are not
+    the same thing: the kit runs out of `buildcli/runtime/`, an installed project
+    out of `.buildcli/runtime/`. Whichever copy is running is the one whose build
+    stamp answers "which version is this".
+    """
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def build_stamp():
+    """The kit revision this runtime was installed from, or None.
+
+    Written by `bootstrap.sh` at install time, because the runtime cannot ask git
+    itself: it is *copied* into the target project, so a `git rev-parse` there
+    would report the target's history rather than the kit's. It lives outside
+    `bcx_lib/` so that `doctor`'s stale-runtime check — which compares the two
+    module directories file by file — does not read it as drift.
+    """
+    try:
+        with open(os.path.join(runtime_dir(), BUILD_STAMP), "r", encoding="utf-8") as fh:
+            return fh.read().strip() or None
+    except Exception:
+        return None
 
 
 def claims_dir(root):
