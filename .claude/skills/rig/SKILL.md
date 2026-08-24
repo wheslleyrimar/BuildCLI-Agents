@@ -172,4 +172,5 @@ on top of a `--full` base to add the gates later.
 - The write gate only fires while a single unit is claimed. Ambiguity means no enforcement, by design.
 - Test command still `NEEDS CLARIFICATION` → leave `verify_on_stop` false and say why.
 - Permissions are additive. Append; never replace.
-- Claude Code only. Codex, Gemini, and Copilot use the runtime, but have no blocking hooks.
+- Claude Code only. Codex has its own `rig` command that writes `.codex/hooks.json`; Gemini and
+  Copilot use the runtime, but have no blocking hooks.
