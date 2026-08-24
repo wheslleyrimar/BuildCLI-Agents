@@ -63,7 +63,10 @@ def run(root, command=None, timeout=900):
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         )
     except subprocess.TimeoutExpired:
-        state.journal(root, "verify", "TIMEOUT after %ss: %s" % (timeout, cmd))
+        # ` :: ` before the command in every VERIFY line, so `resume` can trim it
+        # off with one rule — the command comes out of [band:verify], and the
+        # digest is injected as context.
+        state.journal(root, "verify", "TIMEOUT after %ss :: %s" % (timeout, cmd))
         return {"ran": True, "command": cmd, "passed": False, "exit": None,
                 "output": "", "reason": "timed out after %ss" % timeout}
 

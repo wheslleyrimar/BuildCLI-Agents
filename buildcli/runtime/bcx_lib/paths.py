@@ -1,14 +1,38 @@
 """Locating the project root and the files the runtime owns."""
 
+import json
 import os
 
 STATE_DIR = ".buildcli"
 CONTEXT = "context.md"
 ACTIVE = "active"
 BANDS_MAP = "bands.json"
+ENFORCE = "enforce.json"
 JOURNAL = os.path.join("journal", "session.log")
+JOURNAL_PREV = os.path.join("journal", "session.1.log")
+
+# Ownership of a claimed unit. One file per unit, plus the short mutex that
+# serialises rewrites of worklist.md. Both are gitignored: like `active`, they
+# describe what one machine is doing right now, not what the project is.
+CLAIMS = "claims"
+CLAIM_SUFFIX = ".claim"
+WORKLIST_LOCK = ".worklist.lock"
 
 BANDS = ("service", "interface", "store", "verify", "delivery")
+
+# The switch file, with every key defaulted. It lives here rather than in gate.py
+# because the journal writer needs `journal_max_kb` and gate.py imports state.py,
+# not the other way round. One dictionary, so a new key cannot drift between two.
+DEFAULT_ENFORCE = {
+    "enabled": True,
+    "context_gate": True,     # force band reads through the CLI
+    "write_gate": True,       # keep edits inside the claimed unit's band
+    "verify_on_stop": False,
+    "session_start": True,    # inject the resume digest when a session opens
+    "journal_max_kb": 256,    # rotate past this size; 0 or less disables rotation
+    "routing": {},            # band -> agent name, reported by `bcx next`
+    "lock_timeout_s": 10,     # how long a transition waits for the worklist mutex
+}
 
 
 class ProjectError(Exception):
@@ -50,8 +74,57 @@ def bands_map_path(root):
     return os.path.join(root, STATE_DIR, BANDS_MAP)
 
 
+def enforce_path(root):
+    return os.path.join(root, STATE_DIR, ENFORCE)
+
+
 def journal_path(root):
     return os.path.join(root, STATE_DIR, JOURNAL)
+
+
+def journal_prev_path(root):
+    return os.path.join(root, STATE_DIR, JOURNAL_PREV)
+
+
+def claims_dir(root):
+    return os.path.join(root, STATE_DIR, CLAIMS)
+
+
+def claim_path(root, unit):
+    """The claim file for one unit.
+
+    Unit ids come from `worklist.UNIT_HEAD`, which admits `[A-Za-z]\\w*` and so
+    can never contain a separator. The guard is here anyway because this is the
+    only place a caller-supplied id becomes a filesystem path, and a traversal
+    is not the kind of bug worth discovering later.
+    """
+    if not unit or not all(c.isalnum() or c == "_" for c in unit):
+        raise ProjectError("invalid unit id for a claim: %r" % (unit,))
+    return os.path.join(claims_dir(root), unit + CLAIM_SUFFIX)
+
+
+def lock_path(root):
+    """The mutex guarding every read-modify-write of worklist.md.
+
+    It lives beside the claims because it is the same kind of state, but its
+    lifetime is the opposite: a claim is held for as long as the work takes and
+    never expires on its own, while this is held for milliseconds and must break
+    on age — otherwise one crashed process freezes every transition in the
+    project.
+    """
+    return os.path.join(claims_dir(root), WORKLIST_LOCK)
+
+
+def settings(root):
+    """The enforce.json switch, with defaults filled in. Never raises."""
+    cfg = dict(DEFAULT_ENFORCE)
+    try:
+        data = json.loads(read_text(enforce_path(root)))
+        if isinstance(data, dict):
+            cfg.update(data)
+    except Exception:
+        pass
+    return cfg
 
 
 def read_text(path):

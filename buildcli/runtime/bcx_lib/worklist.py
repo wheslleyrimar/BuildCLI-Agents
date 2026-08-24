@@ -11,7 +11,21 @@ from . import paths
 UNIT_HEAD = re.compile(r"^###\s+(?P<id>[A-Za-z]\w*)\s+—\s+(?P<name>.+?)\s*$", re.M)
 # Accept a plain hyphen too — not everyone types an em dash.
 UNIT_HEAD_ALT = re.compile(r"^###\s+(?P<id>[A-Za-z]\w*)\s+-\s+(?P<name>.+?)\s*$", re.M)
-FIELD = re.compile(r"^-\s*(?P<key>[A-Za-z][A-Za-z ]*?)\s*:\s*(?P<val>.*?)\s*$", re.M)
+
+# A field runs until the next thing that starts a line at the margin. Its value
+# may wrap, and a wrapped `Check:` is normal — a check is supposed to be a
+# concrete observation, and those are not always short. A continuation line is an
+# indented one that does not itself open a list item or a heading.
+#
+# The lookahead sits immediately after the newline, spanning the whole indent, so
+# that it cannot be stepped around. Written as `[ \t]+(?![-*#])` it would be
+# useless: the greedy indent backtracks to one space, the lookahead then reads a
+# space rather than the bullet, succeeds, and a nested list item gets swallowed
+# into the value above it.
+CONTINUATION = r"(?:\n(?![ \t]*[-*#])[ \t]+.*)*"
+FIELD = re.compile(
+    r"^-[ \t]*(?P<key>[A-Za-z][A-Za-z ]*?)[ \t]*:[ \t]*(?P<val>.*" + CONTINUATION + r")",
+    re.M)
 
 STATUSES = ("pending", "in_progress", "done", "blocked")
 NONE_TOKENS = ("—", "-", "none", "n/a", "")
@@ -41,11 +55,20 @@ def _parse_deps(raw):
     return [p.strip() for p in re.split(r"[,\s]+", raw) if p.strip() and p.strip() not in ("—", "-")]
 
 
+def _unwrap(value):
+    """Join a wrapped value into one line, leaving its own spacing alone.
+
+    Only the newline-plus-indent that markdown wrapping introduces is collapsed;
+    runs of spaces the author typed inside a line survive.
+    """
+    return re.sub(r"[ \t]*\n[ \t]+", " ", value).strip()
+
+
 def parse(text):
     """Return the unit list. Order follows the file."""
     units = []
     for uid, name, body, span in _split_units(text):
-        fields = {m.group("key").strip().lower(): m.group("val").strip()
+        fields = {m.group("key").strip().lower(): _unwrap(m.group("val"))
                   for m in FIELD.finditer(body)}
         status = fields.get("status", "pending").strip().lower()
         if status not in STATUSES:
@@ -219,17 +242,43 @@ def set_status(path, uid, status, reason=""):
     return target
 
 
+def _field_pattern(key):
+    """Match one field and everything that wraps under it."""
+    return re.compile(r"^-[ \t]*%s[ \t]*:.*%s" % (re.escape(key), CONTINUATION),
+                      re.M | re.I)
+
+
+def _last_field_line(lines):
+    """Index of the last line belonging to a field, continuations included.
+
+    Not simply the last line that opens with `-`: for a wrapped field that is the
+    field's *first* line, and inserting after it lands in the middle of somebody's
+    sentence.
+    """
+    last, in_field = None, False
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("-"):
+            last, in_field = i, True
+        elif in_field and line.strip() and line[:1] in (" ", "\t"):
+            last = i          # still inside the field above
+        elif line.strip():
+            in_field = False  # prose at the margin ends the field list
+    return last
+
+
 def _upsert_field(block, key, value):
-    pattern = re.compile(r"^-\s*%s\s*:.*$" % re.escape(key), re.M | re.I)
+    pattern = _field_pattern(key)
     if pattern.search(block):
-        return pattern.sub("- %s: %s" % (key, value), block, count=1)
+        # Replacing consumes the old continuations too, so a value that used to
+        # wrap does not leave orphaned lines behind.
+        return pattern.sub(lambda _: "- %s: %s" % (key, value), block, count=1)
 
     lines = block.rstrip("\n").split("\n")
-    last = max((i for i, l in enumerate(lines) if l.strip().startswith("-")), default=None)
+    last = _last_field_line(lines)
     insert_at = (last + 1) if last is not None else len(lines)
     lines.insert(insert_at, "- %s: %s" % (key, value))
     return "\n".join(lines) + "\n\n"
 
 
 def _drop_field(block, key):
-    return re.sub(r"^-\s*%s\s*:.*\n?" % re.escape(key), "", block, flags=re.M | re.I)
+    return re.sub(_field_pattern(key).pattern + r"\n?", "", block, flags=re.M | re.I)

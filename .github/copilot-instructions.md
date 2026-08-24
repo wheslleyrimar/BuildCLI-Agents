@@ -11,6 +11,7 @@ reading state files by hand:
 - `.buildcli/runtime/bcx graph` — dependency graph and cycle report
 - `.buildcli/runtime/bcx claim|done|block <id>` — unit state transitions
 - `.buildcli/runtime/bcx verify` — run the project's test command
+- `.buildcli/runtime/bcx resume` — where the project left off, in one screen
 - `.buildcli/runtime/bcx doctor` — validate context, graph, and configuration
 
 ## Shared state

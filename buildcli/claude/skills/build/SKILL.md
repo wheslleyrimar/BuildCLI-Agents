@@ -64,13 +64,25 @@ plan is wrong, not the code.
 concurrently. Spawn one sub-agent per band and hand each:
 
 - its unit list, from the runtime's output
+- **its own identity**, and the instruction to pass `--agent <id>` on every runtime command
 - the path to its band skill, `.claude/skills/<band>/SKILL.md`
 - the instruction to load context with `.buildcli/runtime/bcx band <band>` and nothing else
 - `brief.md`, for reference
 
-One caveat: the write gate keys off a *single* claimed unit. Parallel sub-agents each claiming a
-unit make the current band ambiguous, and the gate then allows everything by design. Either fan out
-with the gate as advisory, or run the bands sequentially to keep enforcement tight.
+Enforcement survives the fan-out **only if each worker is distinguishable**. The gate resolves the
+caller's own claim and holds it to that band, so named workers each stay inside their own. Give every
+worker a distinct `--agent`, and export a matching `BCX_AGENT_ID` in its environment — the gate runs
+as a hook subprocess and reads the environment, since a hook event carries no agent field.
+
+Where the host cannot give each worker its own environment, they all look like one caller, the band
+is ambiguous again, and the gate allows everything. That is not a new failure — it is how the gate
+behaved before identities existed — but it is invisible unless you look. `.buildcli/runtime/bcx doctor`
+names it: two live claims sharing one owner is reported precisely because enforcement does not error
+in that state, it silently stops. Check it once at the start of a fan-out.
+
+Bands ready in parallel are not the same as files that do not collide. Two bands can own edits to the
+same file; `.buildcli/bands.json` is what makes the separation real, and a project without one gets no
+path enforcement at all. Fan out on disjoint files, not just disjoint bands.
 
 Merge the sub-agent results before reporting.
 

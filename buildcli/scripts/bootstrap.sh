@@ -173,6 +173,17 @@ install_runtime() {
   [[ -d "$src" ]] || return 0
 
   mkdir -p "$dest"
+
+  # Refuse when the destination resolves back onto the kit — a symlinked
+  # .buildcli/runtime does exactly that, and the rm -rf below would then delete
+  # the source it is about to copy from. Cheap check, unrecoverable mistake.
+  if [[ "$(cd "$src" && pwd -P)" == "$(cd "$dest" && pwd -P)" ]]; then
+    echo "ERROR: $dest resolves to the kit's own runtime." >&2
+    echo "  The runtime is copied, never linked — a link here would delete it." >&2
+    echo "  Remove the link and re-run." >&2
+    exit 1
+  fi
+
   # The runtime is always copied. Symlinking it would break the hook commands
   # recorded in settings.json the moment the source tree moves.
   rm -rf "$dest/bcx_lib"
@@ -218,9 +229,20 @@ ensure_state() {
 journal/*.log
 active
 enforce.json
+claims/
 __pycache__/
 IGNORE
     tick "state" "$REPO_PATH/.buildcli/.gitignore"
+  else
+    # An install that predates a state file needs the new entry appended, or its
+    # claim store lands in the project's history. Guarded on the line itself, so
+    # re-running stays a no-op and a hand-edited file is left alone otherwise.
+    for entry in 'claims/'; do
+      if ! grep -qxF "$entry" "$REPO_PATH/.buildcli/.gitignore"; then
+        printf '%s\n' "$entry" >> "$REPO_PATH/.buildcli/.gitignore"
+        tick "state" "$REPO_PATH/.buildcli/.gitignore (+$entry)"
+      fi
+    done
   fi
 
   if [[ -f "$context" ]]; then
@@ -328,6 +350,7 @@ Runtime (always prefer it over reading state files by hand):
 - \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
 - \`.buildcli/runtime/bcx verify\`        — run the project's test command
 - \`.buildcli/runtime/bcx status --json\` — pipeline snapshot
+- \`.buildcli/runtime/bcx resume\`        — where the project left off, in one screen
 - \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
@@ -400,6 +423,7 @@ Runtime (always prefer it over reading state files by hand):
 - \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
 - \`.buildcli/runtime/bcx verify\`        — run the project's test command
 - \`.buildcli/runtime/bcx status --json\` — pipeline snapshot
+- \`.buildcli/runtime/bcx resume\`        — where the project left off, in one screen
 - \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
@@ -472,6 +496,7 @@ Runtime (always prefer it over reading state files by hand):
 - \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
 - \`.buildcli/runtime/bcx verify\`        — run the project's test command
 - \`.buildcli/runtime/bcx status --json\` — pipeline snapshot
+- \`.buildcli/runtime/bcx resume\`        — where the project left off, in one screen
 - \`.buildcli/runtime/bcx doctor\`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare \`bcx\` — it is project-local and not on PATH.
@@ -517,6 +542,7 @@ reading state files by hand:
 - \`.buildcli/runtime/bcx graph\` — dependency graph and cycle report
 - \`.buildcli/runtime/bcx claim|done|block <id>\` — unit state transitions
 - \`.buildcli/runtime/bcx verify\` — run the project's test command
+- \`.buildcli/runtime/bcx resume\` — where the project left off, in one screen
 - \`.buildcli/runtime/bcx doctor\` — validate context, graph, and configuration
 
 ## Shared state

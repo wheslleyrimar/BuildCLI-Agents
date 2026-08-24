@@ -32,8 +32,12 @@ jobs:
       - name: Stdlib only — no third-party imports
         working-directory: buildcli/runtime
         run: |
-          if grep -rnE '^\s*(import|from)\s+(?!(os|sys|re|json|argparse|subprocess|shlex|datetime|tempfile|shutil|unittest|glob)\b)' \
-               --include='*.py' -P . ; then
+          # -P alone. Passing -E as well made grep exit on "conflicting matchers
+          # specified", which the `if` read as "found nothing" — so this guard
+          # reported success without ever having run. The allowlist covers the
+          # relative imports the package uses on itself, and `bcx_lib` for tests.
+          if grep -rnP '^\s*(import|from)\s+(?!\.|(os|sys|re|io|stat|json|argparse|subprocess|shlex|datetime|tempfile|shutil|unittest|glob|contextlib|errno|socket|time|bcx_lib)\b)' \
+               --include='*.py' . ; then
             echo "third-party import found — the runtime must stay stdlib only" >&2
             exit 1
           fi

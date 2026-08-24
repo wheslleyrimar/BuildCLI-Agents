@@ -102,7 +102,7 @@ to make sense is a band that was written wrong.
 ├── context.md            ← written by survey
 ├── active                ← one line: "blueprints/features/checkout-flow"
 ├── journal/session.log   ← audit trail, written by rig's hooks
-└── hooks/session-end.sh  ← runs at the end of every Claude Code session
+└── runtime/bcx           ← `bcx gate stop` closes every Claude Code session
 
 blueprints/
 ├── features/
@@ -194,7 +194,8 @@ Three things stop being advisory:
 | `PreToolUse` on `Read` | **blocks** a raw read of `.buildcli/context.md` |
 | `PreToolUse` on `Write\|Edit` | **blocks** writes into a band other than the claimed unit's |
 | `PostToolUse` | journals every edit and every test/lint/build command |
-| `Stop` | journals the session end, optionally runs the suite |
+| `Stop` | journals a checkpoint — blueprint, claims, units completed, verify outcome |
+| `SessionStart` | prints `bcx resume` as context, so a new session opens knowing where it is |
 
 ```
 .claude/settings.json          hooks + scoped permissions
@@ -202,6 +203,12 @@ Three things stop being advisory:
 .buildcli/enforce.json         the off switch, per gate
 .buildcli/journal/session.log  2026-08-22 14:32:01 | EDIT | src/api/checkout.ts
 ```
+
+That last pair is what makes closing a session cheap in practice rather than only in principle:
+`Stop` writes down where the work stood, `SessionStart` reads it back. The digest carries pointers
+only — never band content, or it would defeat the read gate from the inside. Holding that took two
+mechanisms, not one: the digest never reads `context.md`, and it trims the verify command out of the
+journal lines it prints, because that command came from `[band:verify]`.
 
 Two design rules worth knowing before you rely on it:
 
@@ -347,7 +354,7 @@ each startup file, and leaves everything you wrote around it untouched.
 │   └── copilot-instructions.md
 ├── .buildcli/
 │   ├── context.md
-│   ├── runtime/buildcli     the executable
+│   ├── runtime/bcx          the executable
 │   └── journal/
 ├── blueprints/
 │   ├── features/

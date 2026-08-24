@@ -42,6 +42,7 @@ Runtime (always prefer it over reading state files by hand):
 - `.buildcli/runtime/bcx claim|done|block <id>` — unit state transitions
 - `.buildcli/runtime/bcx verify`        — run the project's test command
 - `.buildcli/runtime/bcx status --json` — pipeline snapshot
+- `.buildcli/runtime/bcx resume`        — where the project left off, in one screen
 - `.buildcli/runtime/bcx doctor`        — validate context, graph, and configuration
 
 Invoke it by that path, not as a bare `bcx` — it is project-local and not on PATH.

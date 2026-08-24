@@ -13,26 +13,17 @@ import os
 import re
 import sys
 
-from . import paths, state, verify, worklist
+from . import claims, paths, resume, state, verify, worklist
 
 ALLOW, BLOCK = 0, 2
 
-DEFAULT_ENFORCE = {
-    "enabled": True,
-    "context_gate": True,   # force band reads through the CLI
-    "write_gate": True,     # keep edits inside the claimed unit's band
-    "verify_on_stop": False,
-}
+# The defaults live in paths.py — state.py needs the journal cap from the same
+# file, and it cannot import this module without a cycle.
+DEFAULT_ENFORCE = paths.DEFAULT_ENFORCE
 
 
 def _settings(root):
-    path = os.path.join(paths.state_dir(root), "enforce.json")
-    cfg = dict(DEFAULT_ENFORCE)
-    try:
-        cfg.update(json.loads(paths.read_text(path)))
-    except Exception:
-        pass
-    return cfg
+    return paths.settings(root)
 
 
 def _bands_map(root):
@@ -107,19 +98,44 @@ def _deny(message):
     return BLOCK
 
 
-def current_band(root):
-    """The band of the single in-progress unit, or None when it is ambiguous."""
+def active_units(root):
+    """The active blueprint's units, or [] when there is no readable worklist."""
     try:
         active = state.get_active(root)
         if not active:
-            return None
+            return []
         wl = os.path.join(root, active, "worklist.md")
         if not os.path.isfile(wl):
-            return None
-        units = worklist.parse(paths.read_text(wl))
+            return []
+        return worklist.parse(paths.read_text(wl))
     except Exception:
-        return None
+        return []
 
+
+def current_band(root, agent=None):
+    """The band this caller may write to, or None when that cannot be settled.
+
+    Without an agent the rule is the original one: exactly one unit in progress,
+    or nothing is enforced. It has to stay that way — a session with no identity
+    must behave as it did before identities existed.
+
+    With an agent, the question becomes *which* of several live claims is this
+    caller's. Exactly one, and it must still be in progress in the worklist: a
+    claim file left behind by a unit somebody already closed is drift, not
+    authority, and enforcing a band from it would block writes on the strength of
+    a stale file. `bcx doctor` reports that case; the gate declines to act on it.
+
+    Returning None always means "allow". Every path out of here that cannot prove
+    a band takes that exit.
+    """
+    units = active_units(root)
+    if agent is not None:
+        mine = claims.held_by(root, agent)
+        if len(mine) != 1:
+            return None
+        live = [u for u in units
+                if u["id"] == mine[0] and u["status"] == "in_progress"]
+        return live[0]["band"] if len(live) == 1 else None
     claimed = [u for u in units if u["status"] == "in_progress"]
     if len(claimed) != 1:
         return None
@@ -163,9 +179,15 @@ def pre_write(root, event):
     if rel.startswith("..") or rel.startswith(paths.STATE_DIR + "/") or rel.startswith("blueprints/"):
         return ALLOW  # the framework's own state is not band-scoped
 
-    band = current_band(root)
+    # Identity comes from the environment and nowhere else — a hook event carries
+    # no agent field, and guessing one would be worse than not knowing. When the
+    # host gives every worker the same environment, this resolves to one value
+    # for all of them, `current_band` finds several claims, and the gate falls
+    # back to allowing. That is the old behaviour, not a new failure.
+    agent = claims.resolve_identity()
+    band = current_band(root, agent)
     if not band:
-        return ALLOW  # no single claimed unit — nothing to enforce against
+        return ALLOW  # nothing this caller can be held to — nothing to enforce
 
     if matches_band(root, rel, band) in (None, True):
         return ALLOW
@@ -177,12 +199,13 @@ def pre_write(root, event):
         return ALLOW
 
     return _deny(
-        "Blocked: %s belongs to the '%s' band, but the unit currently claimed "
-        "is in '%s'.\n"
+        "Blocked: %s belongs to the '%s' band, but the unit %s is in '%s'.\n"
         "Cross-band work is a separate unit. Either flag it as a follow-up, or "
         "close this unit and claim one in the other band:\n"
         "    bcx done <unit>\n"
-        "    bcx next" % (rel, owner[0], band))
+        "    bcx next"
+        % (rel, owner[0],
+           "%s has claimed" % agent if agent else "currently claimed", band))
 
 
 def post_tool(root, event):
@@ -197,14 +220,50 @@ def post_tool(root, event):
     return ALLOW
 
 
+def checkpoint(root, result=None):
+    """The one line a session leaves behind for the next one to read.
+
+    Pointers only — blueprint, claimed units, what finished, how the suite ended.
+    Never band content: this line is read back into a fresh session's context.
+    """
+    active = state.get_active(root) or "(none)"
+    claimed = [u["id"] for u in active_units(root) if u["status"] == "in_progress"]
+    # Counted before the new STOP line lands, so the window is the session just ending.
+    completed = len([e for e in state.journal_since_stop(root) if e["kind"] == "DONE"])
+    if result is None:
+        outcome = "not-run"
+    elif not result.get("ran"):
+        outcome = "unavailable"
+    else:
+        outcome = "pass" if result.get("passed") else "fail"
+    return "blueprint=%s claimed=%s completed=%d verify=%s" % (
+        active, ",".join(claimed) or "-", completed, outcome)
+
+
 def on_stop(root, event):
-    state.journal(root, "stop", "session ended")
     cfg = _settings(root)
-    if not (cfg["enabled"] and cfg.get("verify_on_stop")):
-        return ALLOW
-    result = verify.run(root)
-    if result["ran"] and not result["passed"]:
+    result = None
+    if cfg["enabled"] and cfg.get("verify_on_stop"):
+        result = verify.run(root)
+    state.journal(root, "stop", checkpoint(root, result))
+    if result and result["ran"] and not result["passed"]:
         sys.stderr.write("Tests failed at session end: %s\n" % result["command"])
+    return ALLOW
+
+
+def session_start(root, event):
+    """Print the resume digest so a fresh session opens knowing where it is.
+
+    SessionStart is one of the three events whose plain stdout Claude Code adds
+    as model-visible context, so exit 0 and print is the whole contract — there
+    is no JSON envelope to fill in. It never blocks: an opening session is not a
+    tool call, and there is nothing here worth refusing.
+    """
+    cfg = _settings(root)
+    if not (cfg["enabled"] and cfg.get("session_start")):
+        return ALLOW
+    for line in resume.lines(root):
+        sys.stdout.write(line + "\n")
     return ALLOW
 
 
@@ -213,6 +272,7 @@ HANDLERS = {
     "pre-write": pre_write,
     "post": post_tool,
     "stop": on_stop,
+    "session-start": session_start,
 }
 
 

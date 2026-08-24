@@ -26,7 +26,7 @@ right folders and writes the autoload block into each startup file.
 │   ├── context.md                ← shared context, split into [band:*] blocks
 │   ├── active                    ← path to the active blueprint
 │   ├── journal/session.log       ← audit trail (written by rig hooks)
-│   └── hooks/session-end.sh      ← runs at the end of each Claude Code session
+│   └── runtime/bcx               ← `bcx gate stop` closes each Claude Code session
 ├── blueprints/
 │   ├── features/<slug>/          ← brief.md · shape.md · worklist.md · audit.md
 │   └── defects/<slug>/
