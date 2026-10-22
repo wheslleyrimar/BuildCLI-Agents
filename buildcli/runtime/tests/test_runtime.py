@@ -18,8 +18,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from bcx_lib import (claims, cli, context, gate, paths, resume, shim, state,  # noqa: E402
-                     verify, worklist)
+from bcx_lib import (claims, cli, context, gate, paths, resume, search, shell, shim,  # noqa: E402
+                     state, verify, worklist)
 
 # The kit's Claude rig template. Absent when the runtime runs from a bootstrapped
 # project rather than the kit, so the test that reads it skips there.
@@ -2111,6 +2111,137 @@ class TestVersionAndBuildStamp(unittest.TestCase):
         self.assertEqual(os.path.dirname(
             os.path.join(paths.runtime_dir(), paths.BUILD_STAMP)), self.runtime)
         self.assertFalse(paths.BUILD_STAMP.endswith(".py"))
+
+
+class TestShellParsing(unittest.TestCase):
+    def test_operators_split_and_pipes_are_flagged(self):
+        cmds = shell.commands("CI=1 npm test 2>&1 | tee out.log && echo ok")
+        self.assertEqual([c["words"] for c in cmds],
+                         [["npm", "test"], ["tee", "out.log"], ["echo", "ok"]])
+        self.assertEqual([c["piped"] for c in cmds], [False, True, False])
+
+    def test_quoted_operators_stay_in_their_word(self):
+        self.assertEqual(shell.segments("grep -r 'a|b; c' src"),
+                         [["grep", "-r", "a|b; c", "src"]])
+
+    def test_shell_c_is_unfolded(self):
+        self.assertEqual(shell.segments("bash -lc 'cd app && pytest -q'"),
+                         [["cd", "app"], ["pytest", "-q"]])
+
+    def test_heredoc_bodies_are_data(self):
+        line = "cat > ci.sh <<'EOF'\ngrep -r foo .\nEOF\necho done"
+        self.assertEqual(shell.segments(line), [["cat"], ["echo", "done"]])
+
+    def test_here_string_is_not_a_heredoc(self):
+        self.assertEqual(shell.segments("cat <<<x\necho next"), [["cat"], ["echo", "next"]])
+
+    def test_wrappers_and_paths_are_reduced(self):
+        self.assertEqual(shell.segments("sudo env A=1 /usr/bin/grep -r x ."),
+                         [["grep", "-r", "x", "."]])
+
+    def test_unbalanced_quote_falls_back(self):
+        self.assertEqual(shell.segments("grep -r 'oops ."), [["grep", "-r", "'oops", "."]])
+
+
+class TestSearchGate(Base):
+    def _leak(self, line, cwd=None):
+        return search.leak(self.root, cwd or self.root, line)
+
+    def _ignore(self):
+        paths.write_text(search.ignore_path(self.root), "# note\ncontext.md\n")
+
+    def test_recursive_grep_from_the_root_is_blocked(self):
+        for line in ("grep -rn foo .", "grep -R foo", "grep -r -A 3 foo .",
+                     "grep --recursive -e foo -e bar .", "grep -d recurse foo .",
+                     "grep -r 'a|b' .", "grep -r foo .*", "egrep -r foo ."):
+            self.assertTrue(self._leak(line), line)
+
+    def test_recursive_grep_that_cannot_reach_the_state_dir_passes(self):
+        os.makedirs(os.path.join(self.root, "src"))
+        for line in ("grep -rn foo src", "grep foo README.md", "grep -r foo *",
+                     "grep -rn --exclude-dir=.buildcli foo .",
+                     "grep -r --exclude-dir={.git,.buildcli} foo .",
+                     "grep -r --exclude=context.md foo .",
+                     "grep -r --include='*.py' foo .",
+                     "grep -rl foo .", "grep -rc foo ."):
+            self.assertIsNone(self._leak(line), line)
+
+    def test_include_that_matches_markdown_still_blocks(self):
+        self.assertTrue(self._leak("grep -r --include='*.md' foo ."))
+
+    def test_cd_moves_the_scope(self):
+        os.makedirs(os.path.join(self.root, "src", "deep"))
+        self.assertIsNone(self._leak("cd src && grep -r foo ."))
+        self.assertTrue(self._leak("cd src/deep && grep -r foo ../.."))
+        self.assertTrue(self._leak("grep -r foo ..", cwd=os.path.join(self.root, "src")))
+
+    def test_cd_dash_stops_the_judgment(self):
+        self.assertIsNone(self._leak("cd - && grep -r foo ."))
+
+    def test_heredoc_body_is_not_judged(self):
+        self.assertIsNone(self._leak("cat > ci.sh <<'EOF'\ngrep -r foo .\nEOF"))
+
+    def test_rg_respects_the_ignore_file(self):
+        self.assertIsNone(self._leak("rg foo"))           # hidden dirs are skipped
+        self.assertTrue(self._leak("rg --hidden foo"))     # no .ignore yet
+        self._ignore()
+        self.assertIsNone(self._leak("rg --hidden foo"))
+        self.assertIsNone(self._leak("rg foo .buildcli"))
+
+    def test_rg_that_disables_ignore_files_is_blocked(self):
+        self._ignore()
+        for line in ("rg -uu foo", "rg --hidden --no-ignore foo",
+                     "rg --no-ignore-dot -. foo", "rg -u foo .buildcli"):
+            self.assertTrue(self._leak(line), line)
+
+    def test_rg_excluded_or_narrowed_passes(self):
+        for line in ("rg -uu -g '!.buildcli' foo", "rg -uu --glob=!context.md foo",
+                     "rg -uu -t py foo", "rg -uu -g '*.py' foo", "rg -uu -l foo",
+                     "rg -uu --files", "cat x | rg -uu foo", "rg -uu foo src"):
+            self.assertIsNone(self._leak(line), line)
+
+    def test_rg_type_md_still_blocks(self):
+        self.assertTrue(self._leak("rg -uu -t md foo"))
+
+    def test_git_grep(self):
+        self.assertTrue(self._leak("git grep foo"))
+        self.assertTrue(self._leak("git --no-pager grep -n foo"))
+        self.assertIsNone(self._leak("git grep foo -- . ':!.buildcli'"))
+        self.assertIsNone(self._leak("git grep -l foo"))
+        self.assertIsNone(self._leak("git log --grep foo"))
+        os.makedirs(os.path.join(self.root, "src"))
+        self.assertIsNone(self._leak("git -C src grep foo"))
+
+    def test_shell_c_is_judged(self):
+        self.assertTrue(self._leak("bash -lc 'grep -r foo .'"))
+
+    def test_pre_read_blocks_a_bash_search(self):
+        event = {"cwd": self.root, "tool_name": "Bash",
+                 "tool_input": {"command": "grep -rn TODO ."}}
+        self.assertEqual(gate.pre_read(self.root, event), gate.BLOCK)
+
+    def test_search_gate_has_its_own_switch(self):
+        event = {"cwd": self.root, "tool_name": "Bash",
+                 "tool_input": {"command": "grep -rn TODO ."}}
+        paths.write_text(paths.enforce_path(self.root), json.dumps({"search_gate": False}))
+        self.assertEqual(gate.pre_read(self.root, event), gate.ALLOW)
+        paths.write_text(paths.enforce_path(self.root),
+                         json.dumps({"context_gate": False, "search_gate": True}))
+        self.assertEqual(gate.pre_read(self.root, event), gate.ALLOW)
+
+    def test_doctor_reports_a_missing_ignore_entry(self):
+        def problems():
+            args = cli.build_parser().parse_args(["doctor", "--json"])
+            buf, stdout = io.StringIO(), sys.stdout
+            sys.stdout = buf
+            try:
+                cli.cmd_doctor(self.root, args)
+            finally:
+                sys.stdout = stdout
+            return [p for p in json.loads(buf.getvalue())["problems"] if ".ignore" in p]
+        self.assertTrue(problems())
+        self._ignore()
+        self.assertFalse(problems())
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-from . import (__version__, claims, context, gate, paths, resume, shim, state,
+from . import (__version__, claims, context, gate, paths, resume, search, shim, state,
                verify, worklist)
 
 OK, FAIL, MISUSE = 0, 1, 2
@@ -575,6 +575,10 @@ def cmd_doctor(root, args):
 
     if verify.discover_command(root) is None:
         problems.append("no test command in [band:verify] — `verify` cannot run")
+
+    if not search.ignore_covers_context(root):
+        problems.append(".buildcli/.ignore does not list context.md — `rg --hidden` and the "
+                        "agents' search tools will read every band; re-run bootstrap")
 
     if _out({"problems": problems, "notes": notes, "active_source": source,
              "ok": not problems}, args.json):

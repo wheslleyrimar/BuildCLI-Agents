@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-from . import claims, paths, resume, state, verify, worklist
+from . import claims, paths, resume, search, shell, state, verify, worklist
 
 ALLOW, BLOCK = 0, 2
 
@@ -212,6 +212,13 @@ def pre_read(root, event):
             "    bcx header"
         )
 
+    # A recursive search names no file and can still print every band.
+    command = (event.get("tool_input") or {}).get("command")
+    if cfg.get("search_gate") and isinstance(command, str):
+        message = search.leak(root, event.get("cwd") or root, command)
+        if message:
+            return _deny(message)
+
     path = _tool_path(event)
     if not path:
         return ALLOW
@@ -301,33 +308,6 @@ _LAUNCHERS = {
     "pipenv", "hatch", "bundle", "go", "cargo", "dotnet", "make", "mvn", "gradle",
     "gradlew", "mix", "python",
 }
-_SEGMENT = re.compile(r"&&|\|\||[;|]")
-_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-_PYTHON = re.compile(r"^python[\d.]*$")
-
-
-def _program(word):
-    """A program as a name: `.venv/bin/pytest` is pytest, `python3.11` is python."""
-    name = word.replace("\\", "/").rsplit("/", 1)[-1]
-    return "python" if _PYTHON.match(name) else name
-
-
-def _segments(command):
-    """Each simple command in a shell line, as words, without leading VAR=value.
-
-    The program is reduced to its name, so a runner named by path or by a
-    versioned interpreter still matches the one [band:verify] names.
-    """
-    out = []
-    for seg in _SEGMENT.split(command):
-        words = seg.split()
-        while words and _ASSIGNMENT.match(words[0]):
-            words.pop(0)
-        if words:
-            out.append([_program(words[0])] + words[1:])
-    return out
-
-
 def runner(command):
     """The words of a test command that name its runner, or None.
 
@@ -335,7 +315,7 @@ def runner(command):
     Flags and paths after the runner are left off, so a run narrowed to one file
     or one test still counts as running the suite's runner.
     """
-    segs = [s for s in _segments(command) if s[0] != "cd"]
+    segs = [s for s in shell.segments(command) if s[0] != "cd"]
     if not segs:
         return None
     words = segs[-1]
@@ -365,7 +345,7 @@ def command_label(root, command):
     """
     test_cmd = verify.discover_command(root)
     words = runner(test_cmd) if test_cmd else None
-    if words and any(seg[:len(words)] == words for seg in _segments(command)):
+    if words and any(seg[:len(words)] == words for seg in shell.segments(command)):
         return "test"
     names = paths.settings(root).get("journal_commands")
     if not isinstance(names, list):

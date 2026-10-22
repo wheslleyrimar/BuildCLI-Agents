@@ -50,6 +50,7 @@ applies. Three levels, each additive:
    {
      "enabled": true,
      "context_gate": true,
+     "search_gate": true,
      "write_gate": true,
      "verify_on_stop": false,
      "session_start": true,
@@ -124,6 +125,9 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
 - **`pre-read`** — blocks a raw read of `.buildcli/context.md` — a `Read` or `Grep` aimed at it,
   directly or through a symlink, or a `Bash` command that names it — and points at
   `.buildcli/runtime/bcx band <name>`. This is what makes band scoping real: the whole file cannot be loaded.
+  It also blocks a recursive `grep`, a `git grep`, or an `rg` with ignore files disabled whose reach
+  includes `.buildcli/`, unless the command excludes it (`--exclude-dir=.buildcli`,
+  `-g '!.buildcli'`, `':!.buildcli'`). `search_gate: false` turns that part off.
 - **`pre-write`** — while exactly one unit is claimed (`.buildcli/runtime/bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
   and root config stay editable.

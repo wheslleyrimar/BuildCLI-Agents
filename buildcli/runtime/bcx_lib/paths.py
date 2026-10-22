@@ -30,6 +30,7 @@ BANDS = ("service", "interface", "store", "verify", "delivery")
 DEFAULT_ENFORCE = {
     "enabled": True,
     "context_gate": True,     # force band reads through the CLI
+    "search_gate": True,      # with context_gate: block recursive searches that reach it
     "write_gate": True,       # keep edits inside the claimed unit's band
     "verify_on_stop": False,
     "session_start": True,    # inject the resume digest when a session opens

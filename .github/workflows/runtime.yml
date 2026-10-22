@@ -79,6 +79,14 @@ jobs:
       - name: Runtime is installed and runs
         run: /tmp/target/.buildcli/runtime/bcx --version
 
+      # ripgrep, and the agents' search tools on it, read .ignore files. Without
+      # this entry `rg --hidden` prints every band at once.
+      - name: Search ignore keeps context.md out, once
+        run: |
+          [ "$(grep -cx 'context.md' /tmp/target/.buildcli/.ignore)" = "1" ] || {
+            echo ".buildcli/.ignore must list context.md exactly once" >&2; exit 1; }
+          echo "search ignore: confirmed"
+
       - name: Codex pipeline skills are installed
         run: |
           test -f /tmp/target/.codex/commands/rig.md

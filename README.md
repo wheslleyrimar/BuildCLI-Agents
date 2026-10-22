@@ -194,7 +194,7 @@ Three things stop being advisory:
 
 | Hook | Effect |
 |---|---|
-| `PreToolUse` on reads / Bash | **blocks** a raw read of `.buildcli/context.md` |
+| `PreToolUse` on reads / Bash | **blocks** a raw read of `.buildcli/context.md`, and a recursive search that would sweep it up |
 | `PreToolUse` on writes / `apply_patch` | **blocks** writes into a band other than the claimed unit's |
 | `PostToolUse` | journals every edit and every test/lint/build command |
 | `Stop` | journals a checkpoint — blueprint, claims, units completed, verify outcome |

@@ -151,6 +151,16 @@ digest on stdout, which Claude Code and Codex add as model-visible context — s
 knowing where the pipeline stands instead of having to ask. Neither can block; `session-start` is
 not a tool call, and there is nothing there worth refusing.
 
+`pre-read` also judges shell searches that never name the file. A recursive `grep` (`-r`, `-R`,
+`-d recurse`), `git grep`, or `rg` that disables ignore files, run from anywhere that reaches
+`.buildcli/`, would print every band at once, and is blocked unless something keeps it out:
+`--exclude-dir=.buildcli`, `-g '!.buildcli'`, a `':!.buildcli'` pathspec, an `--include` or `-t`
+that rules out markdown, or a mode that prints only names or counts. `cd` within the line is
+followed, `bash -c` is unfolded, and here-document bodies are skipped as data. Bootstrap writes
+`.buildcli/.ignore` listing `context.md`, so ripgrep, and the agents' search tools built on it,
+skip the file even with `--hidden`; `doctor` reports an install without it. Other tools — `ack`,
+`find -exec grep`, `xargs grep`, a script — are not judged.
+
 The journal rotates in place. Past `journal_max_kb` the log becomes `session.1.log` and a fresh one
 starts. One generation is kept on purpose — this is a resume aid, not an archive.
 
@@ -190,6 +200,7 @@ The switch, so the gates can be tuned without touching `settings.json`.
 {
   "enabled": true,
   "context_gate": true,
+  "search_gate": true,
   "write_gate": true,
   "verify_on_stop": false,
   "session_start": true,
@@ -201,7 +212,8 @@ The switch, so the gates can be tuned without touching `settings.json`.
 ```
 
 Every key is defaulted in the runtime, so a file written before a key existed keeps working.
-`session_start: false` silences the digest; `journal_max_kb: 0` turns rotation off. `routing` maps a
+`search_gate: false` stops `pre-read` judging recursive searches, while `context_gate` still blocks
+a read that names the file. `session_start: false` silences the digest; `journal_max_kb: 0` turns rotation off. `routing` maps a
 band to the agent best suited to it and is read only by `bcx next` — an empty table means no
 recommendation, never a recommendation of nobody. `lock_timeout_s` is how long a transition waits for
 the worklist mutex before giving up. `journal_commands` lists the words that earn a shell command a

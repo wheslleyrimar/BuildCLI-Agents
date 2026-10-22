@@ -46,6 +46,7 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
    {
      "enabled": true,
      "context_gate": true,
+     "search_gate": true,
      "write_gate": true,
      "verify_on_stop": false,
      "session_start": true,
@@ -113,6 +114,8 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
 ## What each gate does
 
 - `pre-read` blocks shell or tool reads of `.buildcli/context.md` and points at `bcx band <name>` or `bcx header`.
+  It also blocks a recursive `grep`, a `git grep`, or an `rg` with ignore files disabled that reaches
+  `.buildcli/` without excluding it; `search_gate: false` turns that part off.
 - `pre-write` blocks `apply_patch` or write-tool changes to another band's owned paths while one unit is claimed.
 - `post` journals edits, runs of the project's test command (matched from `[band:verify]`), and
   commands matching `journal_commands` in `enforce.json`.

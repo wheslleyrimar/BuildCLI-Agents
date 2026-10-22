@@ -268,6 +268,23 @@ IGNORE
     done
   fi
 
+  # Search tools that read .ignore files — ripgrep, and the agents' search tools
+  # built on it — then skip the context file even with --hidden. A project-wide
+  # search should not return all five bands at once. Shell searches that ignore
+  # these files are left to the pre-read gate.
+  local search_ignore="$REPO_PATH/.buildcli/.ignore"
+  if [[ ! -f "$search_ignore" ]]; then
+    cat > "$search_ignore" <<'IGNORE'
+# Keep project-wide search out of the context file. Read it one band at a time:
+#   .buildcli/runtime/bcx band <name>
+context.md
+IGNORE
+    tick "state" "$search_ignore"
+  elif ! grep -qxF 'context.md' "$search_ignore"; then
+    printf 'context.md\n' >> "$search_ignore"
+    tick "state" "$search_ignore (+context.md)"
+  fi
+
   if [[ -f "$context" ]]; then
     note="$note · context.md kept"
   elif [[ -f "$template" ]]; then
