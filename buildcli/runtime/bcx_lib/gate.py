@@ -299,28 +299,39 @@ def post_tool(root, event):
 _LAUNCHERS = {
     "npm", "npx", "pnpm", "yarn", "bun", "bunx", "deno", "uv", "uvx", "poetry",
     "pipenv", "hatch", "bundle", "go", "cargo", "dotnet", "make", "mvn", "gradle",
-    "./gradlew", "mix", "python", "python3",
+    "gradlew", "mix", "python",
 }
 _SEGMENT = re.compile(r"&&|\|\||[;|]")
 _ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_PYTHON = re.compile(r"^python[\d.]*$")
+
+
+def _program(word):
+    """A program as a name: `.venv/bin/pytest` is pytest, `python3.11` is python."""
+    name = word.replace("\\", "/").rsplit("/", 1)[-1]
+    return "python" if _PYTHON.match(name) else name
 
 
 def _segments(command):
-    """Each simple command in a shell line, as words, without leading VAR=value."""
+    """Each simple command in a shell line, as words, without leading VAR=value.
+
+    The program is reduced to its name, so a runner named by path or by a
+    versioned interpreter still matches the one [band:verify] names.
+    """
     out = []
     for seg in _SEGMENT.split(command):
         words = seg.split()
         while words and _ASSIGNMENT.match(words[0]):
             words.pop(0)
         if words:
-            out.append(words)
+            out.append([_program(words[0])] + words[1:])
     return out
 
 
 def runner(command):
     """The words of a test command that name its runner, or None.
 
-    `cd app && python3 -m unittest discover -s tests` gives python3 -m unittest.
+    `cd app && python3 -m unittest discover -s tests` gives python -m unittest.
     Flags and paths after the runner are left off, so a run narrowed to one file
     or one test still counts as running the suite's runner.
     """

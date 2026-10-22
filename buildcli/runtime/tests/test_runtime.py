@@ -313,7 +313,7 @@ class TestGate(Base):
 
     def test_runner_drops_cd_flags_and_paths(self):
         self.assertEqual(gate.runner("cd app && python3 -m unittest discover -s tests -q"),
-                         ["python3", "-m", "unittest"])
+                         ["python", "-m", "unittest"])
         self.assertEqual(gate.runner("CI=1 npm run test:unit -- --watch=false"),
                          ["npm", "run", "test:unit"])
         self.assertEqual(gate.runner("go test ./..."), ["go", "test"])
@@ -327,6 +327,21 @@ class TestGate(Base):
             "python3 -m unittest tests.test_runtime.TestGate -v"))
         self.assertEqual(self._cmd_lines(),
                          ["test :: python3 -m unittest tests.test_runtime.TestGate -v"])
+
+    def test_runner_named_by_path_or_version_still_matches(self):
+        # The fixture names `python3 -m unittest -q`.
+        for command in (".venv/bin/python -m unittest tests.x",
+                        "/usr/bin/python3.11 -m unittest -v",
+                        "cd app && venv/bin/python3 -m unittest"):
+            self.assertEqual(gate.command_label(self.root, command), "test", command)
+
+    def test_runner_path_is_reduced_to_its_name(self):
+        self.assertEqual(gate.runner(".venv/bin/pytest -q"), ["pytest"])
+        self.assertEqual(gate.runner("./gradlew test --info"), ["gradlew", "test"])
+        self.assertEqual(gate.runner("node_modules/.bin/jest src/"), ["jest"])
+
+    def test_a_different_module_is_not_the_test_runner(self):
+        self.assertIsNone(gate.command_label(self.root, ".venv/bin/python -m pip install x"))
 
     def test_other_runners_need_a_configured_word(self):
         gate.post_tool(self.root, self._bash("eslint src/"))
