@@ -212,8 +212,18 @@ def pre_read(root, event):
             "    bcx header"
         )
 
-    # A recursive search names no file and can still print every band.
+    # A glob, a symlink, or a variable names the file without spelling it out.
     command = (event.get("tool_input") or {}).get("command")
+    if isinstance(command, str) and \
+            search.aliases_context(root, event.get("cwd") or root, command):
+        return _deny(
+            "Blocked: this command reaches .buildcli/context.md by another name — a glob,\n"
+            "a symlink, or a variable — and would load the whole file.\n"
+            "Load exactly the band you need:\n"
+            "    bcx band <service|interface|store|verify|delivery>"
+        )
+
+    # A recursive search names no file and can still print every band.
     if cfg.get("search_gate") and isinstance(command, str):
         message = search.leak(root, event.get("cwd") or root, command)
         if message:

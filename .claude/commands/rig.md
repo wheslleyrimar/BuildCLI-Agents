@@ -127,7 +127,9 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
   `.buildcli/runtime/bcx band <name>`. This is what makes band scoping real: the whole file cannot be loaded.
   It also blocks a recursive `grep`, a `git grep`, or an `rg` with ignore files disabled whose reach
   includes `.buildcli/`, unless the command excludes it (`--exclude-dir=.buildcli`,
-  `-g '!.buildcli'`, `':!.buildcli'`). `search_gate: false` turns that part off.
+  `-g '!.buildcli'`, `':!.buildcli'`). It follows file lists into `xargs`, `find -exec`, and
+  `fd -x`, judges `ack` and `ag`, and resolves globs, symlinks, and line variables that land on the
+  file. `search_gate: false` turns the search part off.
 - **`pre-write`** — while exactly one unit is claimed (`.buildcli/runtime/bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
   and root config stay editable. `Bash` is judged by the files the command would write —

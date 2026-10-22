@@ -2169,6 +2169,19 @@ class TestShellParsing(unittest.TestCase):
         self.assertEqual(shell.segments("sudo env A=1 /usr/bin/grep -r x ."),
                          [["grep", "-r", "x", "."]])
 
+    def test_line_variables_are_substituted(self):
+        walked = [c["words"] for c, _ in shell.walk(
+            "d=.buildcli; export F=context.md && cat $d/${F} $HOME/x", "/tmp")]
+        self.assertEqual(walked, [["cat", ".buildcli/context.md", "$HOME/x"]])
+
+    def test_prefix_assignment_holds_for_one_command(self):
+        walked = [c["words"] for c, _ in shell.walk("D=src make; cat $D/x", "/tmp")]
+        self.assertEqual(walked, [["make"], ["cat", "$D/x"]])
+
+    def test_input_redirection_is_a_read(self):
+        cmd = shell.commands("wc -l < in.txt <<<data")[0]
+        self.assertEqual((cmd["words"], cmd["reads"]), (["wc", "-l"], ["in.txt"]))
+
     def test_unbalanced_quote_falls_back(self):
         self.assertEqual(shell.segments("grep -r 'oops ."), [["grep", "-r", "'oops", "."]])
 
@@ -2261,6 +2274,92 @@ class TestSearchGate(Base):
     def test_git_grep_outside_a_repository(self):
         self.assertIsNone(self._leak("git grep foo"))
         self.assertTrue(self._leak("git grep --no-index foo"))
+
+    # ── names that are not the path ───────────────────────────────────────────
+
+    def _alias(self, line, cwd=None):
+        return search.aliases_context(self.root, cwd or self.root, line)
+
+    def test_globs_that_land_on_the_context_are_caught(self):
+        for line in ("cat .buildcli/con*", "cat .buildcli/*", "head -5 .buildcli/c?ntext.md",
+                     "grep foo .buildcli/*", "cat < .buildcli/con*",
+                     "cd .buildcli && cat *"):
+            self.assertTrue(self._alias(line), line)
+
+    def test_a_symlink_to_the_context_is_caught(self):
+        os.symlink(paths.context_path(self.root), os.path.join(self.root, "notes.md"))
+        self.assertTrue(self._alias("cat notes.md"))
+        self.assertTrue(self._alias("diff notes.md other.md"))
+
+    def test_a_variable_set_on_the_line_is_caught(self):
+        self.assertTrue(self._alias("d=.buildcli; cat $d/context.md"))
+        self.assertTrue(self._alias("export F=.buildcli/con* && cat $F"))
+
+    def test_listing_the_state_dir_is_fine(self):
+        for line in ("ls .buildcli/*", "echo .buildcli/*", "wc -l .buildcli/*",
+                     "stat .buildcli/con*", "cat README.md", "cat src/*",
+                     "git add .buildcli/*", "git status .buildcli/*"):
+            self.assertFalse(self._alias(line), line)
+
+    def test_git_that_prints_content_is_still_caught(self):
+        self.assertTrue(self._alias("git diff .buildcli/con*"))
+        self.assertTrue(self._alias("git log -p .buildcli/*"))
+
+    def test_pre_read_blocks_an_alias(self):
+        event = {"cwd": self.root, "tool_name": "Bash",
+                 "tool_input": {"command": "cat .buildcli/con*"}}
+        self.assertEqual(gate.pre_read(self.root, event), gate.BLOCK)
+
+    # ── searches through an intermediary ──────────────────────────────────────
+
+    def test_file_lists_fed_to_a_reader_are_blocked(self):
+        for line in ("find . -type f | xargs cat", "find . -name '*.md' | xargs head",
+                     "find . -type f -print0 | xargs -0 -n1 cat",
+                     "find . -type f | sort | uniq | xargs cat",
+                     "grep -rl TODO . | xargs cat", "git ls-files --others | xargs cat",
+                     "ack -f | xargs cat"):
+            self.assertTrue(self._leak(line), line)
+
+    def test_file_lists_that_skip_the_state_dir_or_feed_no_reader_pass(self):
+        os.makedirs(os.path.join(self.root, "src"))
+        for line in ("find . -type f", "find src -type f | xargs cat",
+                     "find . -name '*.py' | xargs cat", "find . -type d | xargs ls",
+                     "find . -path ./.buildcli -prune -o -type f -print | xargs cat",
+                     "find . -type f | grep -v .buildcli | xargs cat",
+                     "find . -type f | xargs wc -l", "find . -type f | xargs grep -l TODO",
+                     "find . | xargs", "rg --files | xargs cat", "fd | xargs cat"):
+            self.assertIsNone(self._leak(line), line)
+
+    def test_a_list_does_not_survive_a_new_command(self):
+        self.assertIsNone(self._leak("find . -type f > files.txt; xargs cat < files.txt"))
+
+    def test_exec_runs_the_reader_on_each_file(self):
+        self.assertTrue(self._leak("find . -type f -exec cat {} +"))
+        self.assertTrue(self._leak("find . -name '*.md' -exec grep -n x {} \\;"))
+        self.assertIsNone(self._leak("find . -type f -exec grep -l x {} +"))
+        self.assertIsNone(self._leak("find . -type f -exec ls -l {} +"))
+
+    def test_fd_follows_hidden_and_ignore_flags(self):
+        self.assertTrue(self._leak("fd -H -I | xargs cat"))
+        self.assertTrue(self._leak("fd -u -x cat"))
+        self.assertIsNone(self._leak("fd -u -e py -x cat"))
+        self._ignore()
+        self.assertIsNone(self._leak("fd -H | xargs cat"))
+        self.assertTrue(self._leak("fd -H -I | xargs cat"))
+
+    def test_rg_file_lists(self):
+        self.assertTrue(self._leak("rg --files --hidden | xargs cat"))   # no .ignore yet
+        self._ignore()
+        self.assertIsNone(self._leak("rg --files --hidden | xargs cat"))
+        self.assertTrue(self._leak("rg -uu --files | xargs cat"))
+
+    def test_ack_and_ag(self):
+        self.assertTrue(self._leak("ack TODO"))
+        self.assertIsNone(self._leak("ack --ignore-dir=.buildcli TODO"))
+        self.assertIsNone(self._leak("ack -c TODO"))
+        self.assertIsNone(self._leak("ag TODO"))          # hidden dirs are skipped
+        self.assertTrue(self._leak("ag -u TODO"))
+        self.assertIsNone(self._leak("ag -u --ignore-dir .buildcli TODO"))
 
     def test_shell_c_is_judged(self):
         self.assertTrue(self._leak("bash -lc 'grep -r foo .'"))

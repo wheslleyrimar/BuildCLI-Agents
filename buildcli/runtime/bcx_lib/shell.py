@@ -17,6 +17,8 @@ _PUNCT = set("<>&|;()")
 # `<<EOF`, `<<-'EOF'` — but not the `<<<` of a here-string.
 _HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 _FALLBACK_SPLIT = re.compile(r"&&|\|\||[;|\n]")
+_VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+_DECLARES = {"export", "local", "readonly", "declare", "typeset"}
 
 
 def program(word):
@@ -49,9 +51,11 @@ def commands(line):
     """Each simple command in a shell line, in order.
 
     Returns dicts of `words` (leading VAR=value and wrappers like `env` dropped,
-    the program reduced by `program()`), `piped` (stdin comes from a pipe), and
-    `writes` (files an output redirection opens). Redirections are taken out of
-    `words`. `bash -c '...'` is unfolded into the commands it runs.
+    the program reduced by `program()`), `piped` (stdin comes from a pipe),
+    `writes` and `reads` (files a redirection opens), and `assigns`. Redirections
+    are taken out of `words`. A command that only assigns variables (`d=src`,
+    `export D=src`) comes back with empty `words` and its `assigns` filled in.
+    `bash -c '...'` is unfolded into the commands it runs.
     """
     if not isinstance(line, str):
         return []
@@ -60,16 +64,18 @@ def commands(line):
         tokens = _tokens(text)
     except ValueError:
         # An unbalanced quote. Fall back to splitting on the obvious operators.
-        return [{"words": w, "piped": False, "writes": []}
+        return [{"words": w, "piped": False, "writes": [], "reads": [], "assigns": {}}
                 for w in (_clean(seg.split()) for seg in _FALLBACK_SPLIT.split(line)) if w]
 
-    out, words, writes, piped, redirect = [], [], [], False, None
+    out, words, writes, reads, piped, redirect = [], [], [], [], False, None
     for tok in tokens:
         if redirect is not None:
             # `>&2` and `>&-` duplicate or close a descriptor; nothing is opened.
             dup = redirect.endswith("&") and (tok.isdigit() or tok == "-")
             if ">" in redirect and not dup:
                 writes.append(tok)
+            elif redirect == "<":
+                reads.append(tok)  # not `<<` (a heredoc delimiter) or `<<<` (data)
             redirect = None
             continue
         if tok and all(c in _PUNCT for c in tok):
@@ -78,24 +84,41 @@ def commands(line):
                     words.pop()  # the fd number of `2>&1`
                 redirect = tok
                 continue
-            _emit(out, words, piped, writes)
-            words, writes, piped = [], [], tok in ("|", "|&")
+            _emit(out, words, piped, writes, reads)
+            words, writes, reads, piped = [], [], [], tok in ("|", "|&")
             continue
         words.append(tok)
-    _emit(out, words, piped, writes)
+    _emit(out, words, piped, writes, reads)
     return out
 
 
-def _emit(out, words, piped, writes):
-    words = _clean(words)
+def _assignment(word):
+    name, _, value = word.partition("=")
+    return name, value
+
+
+def _emit(out, words, piped, writes, reads):
+    rest, assigns = list(words), {}
+    while rest and _ASSIGNMENT.match(rest[0]):
+        name, value = _assignment(rest.pop(0))
+        assigns[name] = value
+    if rest and rest[0] in _DECLARES:
+        assigns.update(_assignment(w) for w in rest[1:] if _ASSIGNMENT.match(w))
+        rest = []
+    words = _clean(rest)
     if not words:
+        if assigns:
+            out.append({"words": [], "piped": piped, "writes": writes, "reads": reads,
+                        "assigns": assigns})
         return
     if words[0] in _SHELLS:
         for i, w in enumerate(words[1:-1], 1):
             if w.startswith("-") and not w.startswith("--") and "c" in w:
                 out.extend(commands(words[i + 1]))
                 return
-    out.append({"words": words, "piped": piped, "writes": writes})
+    # A prefix assignment (`CI=1 npm test`) holds for that command only.
+    out.append({"words": words, "piped": piped, "writes": writes, "reads": reads,
+                "assigns": {}})
 
 
 def _clean(words):
@@ -109,16 +132,29 @@ def _clean(words):
 
 def segments(line):
     """The words of each simple command — `commands()` without the other keys."""
-    return [c["words"] for c in commands(line)]
+    return [c["words"] for c in commands(line) if c["words"]]
+
+
+def _substitute(word, env):
+    """`$NAME` and `${NAME}` for variables the line itself set. Others stay as typed."""
+    return _VARIABLE.sub(lambda m: env.get(m.group(1) or m.group(2), m.group(0)), word)
 
 
 def walk(line, cwd):
     """Each command of a line with the directory it runs in.
 
-    A `cd` moves the directory and is not yielded. One that cannot be followed
-    (`cd -`) ends the walk, because nothing after it can be placed.
+    Variables the line assigns are substituted into the commands after them, so
+    `d=.buildcli; cat $d/context.md` is judged as the path it reads. A `cd` moves
+    the directory and is not yielded. One that cannot be followed (`cd -`) ends
+    the walk, because nothing after it can be placed.
     """
+    env = {}
     for cmd in commands(line):
+        if not cmd["words"]:
+            env.update((k, _substitute(v, env)) for k, v in cmd["assigns"].items())
+            continue
+        cmd = dict(cmd, **{key: [_substitute(w, env) for w in cmd[key]]
+                           for key in ("words", "writes", "reads")})
         words = cmd["words"]
         if words[0] == "cd":
             target = words[1] if len(words) > 1 else "~"

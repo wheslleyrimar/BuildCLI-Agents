@@ -160,8 +160,23 @@ blocked only when git would see the file — tracked, or reached by `--untracked
 or `--no-index`. `cd` within the line is
 followed, `bash -c` is unfolded, and here-document bodies are skipped as data. Bootstrap writes
 `.buildcli/.ignore` listing `context.md`, so ripgrep, and the agents' search tools built on it,
-skip the file even with `--hidden`; `doctor` reports an install without it. Other tools — `ack`,
-`find -exec grep`, `xargs grep`, a script — are not judged.
+skip the file even with `--hidden`; `doctor` reports an install without it.
+
+The same judgment covers searches that go through an intermediary. `ack` is judged like a recursive
+grep and `ag` like ripgrep. A command that prints only file names — `find`, `rg --files`, `fd`,
+`grep -rl`, `git ls-files` — is no leak on its own, but when its list reaches `.buildcli/context.md`
+and flows through a pipe (past filters like `sort` or `grep` that do not drop the state directory)
+into an `xargs` that reads what it is handed, the line is blocked. `find -exec` and `fd -x` are
+judged by the command they run. Commands that print only names or counts (`ls`, `wc`, `grep -l`) pass.
+
+`pre-read` also resolves names that are not the path itself: a glob such as `.buildcli/con*`, a
+symlink to the file, or a variable the line sets earlier (`d=.buildcli; cat $d/context.md`). `ls`,
+`echo`, `wc`, and git subcommands that print no file contents (`git add`, `git status`) are left
+alone.
+
+Not judged: a program that opens the file from the inside (`python script.py`, `node -e ...`), and
+command substitution such as `cat $(find . -type f)`. Closing those would take the host's sandbox,
+not a reading of the command line.
 
 The journal rotates in place. Past `journal_max_kb` the log becomes `session.1.log` and a fresh one
 starts. One generation is kept on purpose — this is a resume aid, not an archive.

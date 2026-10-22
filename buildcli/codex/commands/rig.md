@@ -115,7 +115,9 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
 
 - `pre-read` blocks shell or tool reads of `.buildcli/context.md` and points at `bcx band <name>` or `bcx header`.
   It also blocks a recursive `grep`, a `git grep`, or an `rg` with ignore files disabled that reaches
-  `.buildcli/` without excluding it; `search_gate: false` turns that part off.
+  `.buildcli/` without excluding it, follows file lists into `xargs`, `find -exec`, and `fd -x`,
+  and resolves globs, symlinks, and line variables that land on the file; `search_gate: false`
+  turns the search part off.
 - `pre-write` blocks `apply_patch`, write-tool, or shell changes to another band's owned paths while one
   unit is claimed. A shell command is judged by the files it would write: redirections, `tee`,
   `sed -i`, `cp`, `mv`, `rm`, and the like.
