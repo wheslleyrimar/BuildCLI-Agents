@@ -268,17 +268,10 @@ def _git_sees_context(root, cwd, names):
 def leak(root, cwd, line):
     """The refusal for a search in `line` that would print context.md, or None.
 
-    `cwd` is where the line runs. A `cd` inside it moves that; one that cannot be
-    followed ends the judgment, because nothing after it can be placed.
+    `cwd` is where the line runs; `shell.walk` follows any `cd` inside it.
     """
-    for cmd in shell.commands(line):
+    for cmd, here in shell.walk(line, cwd):
         words = cmd["words"]
-        if words[0] == "cd":
-            target = words[1] if len(words) > 1 else "~"
-            if target == "-":
-                return None
-            cwd = os.path.join(cwd, os.path.expanduser(target))
-            continue
         if words[0] in GREP:
             judge = _grep
         elif words[0] == "rg":
@@ -287,7 +280,7 @@ def leak(root, cwd, line):
             judge = _git_grep
         else:
             continue
-        message = judge(root, cwd, words, cmd["piped"])
+        message = judge(root, here, words, cmd["piped"])
         if message:
             return message
     return None

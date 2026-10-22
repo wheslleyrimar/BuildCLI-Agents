@@ -100,7 +100,7 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
            "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-read" }]
          },
          {
-           "matcher": "apply_patch|Edit|Write|mcp__.*write.*",
+           "matcher": "Bash|apply_patch|Edit|Write|mcp__.*write.*",
            "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-write" }]
          }
        ]
@@ -116,7 +116,9 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
 - `pre-read` blocks shell or tool reads of `.buildcli/context.md` and points at `bcx band <name>` or `bcx header`.
   It also blocks a recursive `grep`, a `git grep`, or an `rg` with ignore files disabled that reaches
   `.buildcli/` without excluding it; `search_gate: false` turns that part off.
-- `pre-write` blocks `apply_patch` or write-tool changes to another band's owned paths while one unit is claimed.
+- `pre-write` blocks `apply_patch`, write-tool, or shell changes to another band's owned paths while one
+  unit is claimed. A shell command is judged by the files it would write: redirections, `tee`,
+  `sed -i`, `cp`, `mv`, `rm`, and the like.
 - `post` journals edits, runs of the project's test command (matched from `[band:verify]`), and
   commands matching `journal_commands` in `enforce.json`.
 - `stop` writes a checkpoint.

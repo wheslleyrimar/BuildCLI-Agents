@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-from . import claims, paths, resume, search, shell, state, verify, worklist
+from . import claims, paths, resume, search, shell, state, verify, worklist, writes
 
 ALLOW, BLOCK = 0, 2
 
@@ -245,6 +245,11 @@ def pre_write(root, event):
         return ALLOW
 
     target_paths = _tool_paths(event)
+    command = (event.get("tool_input") or {}).get("command")
+    if not target_paths and isinstance(command, str) and \
+            event.get("tool_name") != "apply_patch":
+        # A shell command: redirections, sed -i, cp, mv, rm and the like.
+        target_paths = writes.targets(command, event.get("cwd") or root)
     if not target_paths:
         return ALLOW
 
@@ -260,6 +265,8 @@ def pre_write(root, event):
 
     for path in target_paths:
         rel = _rel(root, path)
+        if path.endswith(("/", os.sep)):
+            rel += "/"  # a directory: `src/api/` is claimed by `src/api/**`
         if rel.startswith("..") or rel.startswith(paths.STATE_DIR + "/") or \
                 rel.startswith("blueprints/"):
             continue  # the framework's own state is not band-scoped

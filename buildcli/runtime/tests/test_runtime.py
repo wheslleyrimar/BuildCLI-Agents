@@ -19,12 +19,14 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from bcx_lib import (claims, cli, context, gate, paths, resume, search, shell, shim,  # noqa: E402
-                     state, verify, worklist)
+                     state, verify, worklist, writes)
 
 # The kit's Claude rig template. Absent when the runtime runs from a bootstrapped
 # project rather than the kit, so the test that reads it skips there.
 CLAUDE_RIG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "..", "..", "claude", "commands", "rig.md")
+CODEX_RIG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "..", "codex", "commands", "rig.md")
 
 CONTEXT = """# Project Context
 
@@ -228,18 +230,46 @@ class TestGate(Base):
         os.symlink(os.path.join(self.root, "README.md"), os.path.join(self.root, "link.md"))
         self.assertEqual(gate.pre_read(self.root, self._event("link.md")), gate.ALLOW)
 
+    def _matcher_tools(self, template, gate_name):
+        """The tools a rig template routes to one gate, from its JSON blocks."""
+        def pre_tool_use(node):
+            if isinstance(node, dict):
+                if isinstance(node.get("PreToolUse"), list):
+                    yield from node["PreToolUse"]
+                for v in node.values():
+                    yield from pre_tool_use(v)
+            elif isinstance(node, list):
+                for v in node:
+                    yield from pre_tool_use(v)
+
+        found = []
+        for block in re.findall(r"```json\n(.*?)\n\s*```", paths.read_text(template), re.S):
+            try:
+                data = json.loads(block)
+            except ValueError:
+                continue
+            for m in pre_tool_use(data):
+                if any(gate_name in h["command"] for h in m["hooks"]):
+                    found.append(m["matcher"])
+        self.assertEqual(len(found), 1, (template, gate_name))
+        return found[0].split("|")
+
     @unittest.skipUnless(os.path.isfile(CLAUDE_RIG), "kit rig template not present")
     def test_claude_rig_template_gates_bash_and_grep(self):
         # The gate can only judge what the host sends it. A matcher that leaves
         # Bash out makes `cat .buildcli/context.md` invisible to pre-read.
-        text = paths.read_text(CLAUDE_RIG)
-        block = re.search(r"```json\n(\{.*?\n\})\n```", text, re.S).group(1)
-        pre = json.loads(block)["hooks"]["PreToolUse"]
-        matchers = [m["matcher"] for m in pre
-                    if any("gate pre-read" in h["command"] for h in m["hooks"])]
-        self.assertEqual(len(matchers), 1)
-        tools = matchers[0].split("|")
+        tools = self._matcher_tools(CLAUDE_RIG, "gate pre-read")
         for tool in ("Read", "Bash", "Grep"):
+            self.assertIn(tool, tools)
+        tools = self._matcher_tools(CLAUDE_RIG, "gate pre-write")
+        for tool in ("Write", "Edit", "MultiEdit", "Bash"):
+            self.assertIn(tool, tools)
+
+    @unittest.skipUnless(os.path.isfile(CODEX_RIG), "kit rig template not present")
+    def test_codex_rig_template_gates_bash(self):
+        self.assertIn("Bash", self._matcher_tools(CODEX_RIG, "gate pre-read"))
+        tools = self._matcher_tools(CODEX_RIG, "gate pre-write")
+        for tool in ("apply_patch", "Bash"):
             self.assertIn(tool, tools)
 
     def test_cross_band_write_is_blocked(self):
@@ -2262,6 +2292,98 @@ class TestSearchGate(Base):
         self.assertTrue(problems())
         self._ignore()
         self.assertFalse(problems())
+
+
+class TestShellWrites(Base):
+    def _targets(self, line, cwd=None):
+        return sorted(os.path.relpath(p, self.root) + ("/" if p.endswith(os.sep) else "")
+                      for p in writes.targets(line, cwd or self.root))
+
+    def test_redirections(self):
+        self.assertEqual(self._targets("echo x > a.txt && echo y >> b.txt"), ["a.txt", "b.txt"])
+        self.assertEqual(self._targets("make 2>&1 >&2"), [])
+        self.assertEqual(self._targets("cmd &> all.log"), ["all.log"])
+        self.assertEqual(self._targets("cat < in.txt"), [])
+
+    def test_heredoc_into_a_file(self):
+        self.assertEqual(self._targets("cat > src/x.py <<'EOF'\nprint(1) > 2\nEOF"),
+                         ["src/x.py"])
+
+    def test_tee_rm_touch_truncate_dd(self):
+        self.assertEqual(self._targets("echo x | tee -a one two"), ["one", "two"])
+        self.assertEqual(self._targets("rm -rf gone.txt"), ["gone.txt"])
+        self.assertEqual(self._targets("touch new.txt"), ["new.txt"])
+        self.assertEqual(self._targets("truncate -s 0 log.txt"), ["log.txt"])
+        self.assertEqual(self._targets("dd if=/dev/zero of=img bs=1"), ["img"])
+
+    def test_sed_and_perl_in_place(self):
+        self.assertEqual(self._targets("sed -i 's/a/b/' f.py"), ["f.py"])
+        self.assertEqual(self._targets("sed -i '' 's/a/b/' f.py"), ["f.py"])
+        self.assertEqual(self._targets("sed -i.bak -e 's/a/b/' f.py g.py"), ["f.py", "g.py"])
+        self.assertEqual(self._targets("sed -n 's/a/b/p' f.py"), [])
+        self.assertEqual(self._targets("perl -pi -e 's/a/b/' f.pl"), ["f.pl"])
+        self.assertEqual(self._targets("perl -ne 'print' f.pl"), [])
+
+    def test_copy_move_link(self):
+        os.makedirs(os.path.join(self.root, "dst"))
+        self.assertEqual(self._targets("cp a.py b.py"), ["b.py"])
+        self.assertEqual(self._targets("cp a.py dst"), ["dst/a.py"])
+        self.assertEqual(self._targets("cp -t dst a.py b.py"), ["dst/a.py", "dst/b.py"])
+        self.assertEqual(self._targets("mv a.py dst/"), ["a.py", "dst/a.py"])
+        self.assertEqual(self._targets("ln -s ../a.py link.py"), ["link.py"])
+
+    def test_directories_and_globs(self):
+        os.makedirs(os.path.join(self.root, "src", "api"))
+        paths.write_text(os.path.join(self.root, "src", "api", "x.py"), "")
+        self.assertEqual(self._targets("rm -r src/api"), ["src/api/"])
+        self.assertEqual(self._targets("rm src/api/*.py"), ["src/api/x.py"])
+
+    def test_cd_and_shell_c(self):
+        self.assertEqual(self._targets("cd src && echo x > a.py"), ["src/a.py"])
+        self.assertEqual(self._targets("bash -c 'touch t.txt'"), ["t.txt"])
+
+    def test_reads_write_nothing(self):
+        for line in ("git status", "cat a.py", "grep -r x .", "ls > /dev/null"):
+            self.assertEqual([t for t in self._targets(line) if not t.startswith("..")], [],
+                             line)
+
+
+class TestWriteGateOnBash(Base):
+    def setUp(self):
+        Base.setUp(self)
+        paths.write_text(paths.bands_map_path(self.root), json.dumps({
+            "service": ["src/api/**"], "store": ["migrations/**"],
+        }))
+        state.set_active(self.root, self.bp)
+        worklist.set_status(self.wl, "W01", "in_progress")  # store
+        os.makedirs(os.path.join(self.root, "src", "api"))
+        os.makedirs(os.path.join(self.root, "migrations"))
+        paths.write_text(os.path.join(self.root, "src", "api", "x.py"), "")
+
+    def _bash(self, command):
+        return gate.pre_write(self.root, {"cwd": self.root, "tool_name": "Bash",
+                                          "tool_input": {"command": command}})
+
+    def test_cross_band_shell_writes_are_blocked(self):
+        for line in ("echo x > src/api/x.py", "sed -i '' 's/a/b/' src/api/x.py",
+                     "echo x | tee -a src/api/x.py", "cp migrations/1.sql src/api/",
+                     "mv src/api/x.py migrations/", "rm -rf src/api",
+                     "cat > src/api/y.py <<'EOF'\nx = 1\nEOF",
+                     "cd src && echo x > api/x.py"):
+            self.assertEqual(self._bash(line), gate.BLOCK, line)
+
+    def test_in_band_and_unowned_shell_writes_pass(self):
+        for line in ("echo x > migrations/1.sql", "touch README.md",
+                     "npm test 2>/dev/null", "git status", "cat src/api/x.py"):
+            self.assertEqual(self._bash(line), gate.ALLOW, line)
+
+    def test_no_claim_means_no_enforcement(self):
+        worklist.set_status(self.wl, "W01", "pending")
+        self.assertEqual(self._bash("echo x > src/api/x.py"), gate.ALLOW)
+
+    def test_write_gate_switch_covers_bash(self):
+        paths.write_text(paths.enforce_path(self.root), json.dumps({"write_gate": False}))
+        self.assertEqual(self._bash("echo x > src/api/x.py"), gate.ALLOW)
 
 
 if __name__ == "__main__":

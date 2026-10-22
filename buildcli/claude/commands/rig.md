@@ -94,7 +94,7 @@ applies. Three levels, each additive:
         "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-read" }]
       },
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Write|Edit|MultiEdit|Bash",
         "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-write" }]
       }
     ],
@@ -130,7 +130,8 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
   `-g '!.buildcli'`, `':!.buildcli'`). `search_gate: false` turns that part off.
 - **`pre-write`** — while exactly one unit is claimed (`.buildcli/runtime/bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
-  and root config stay editable.
+  and root config stay editable. `Bash` is judged by the files the command would write —
+  redirections, `tee`, `sed -i`, `cp`, `mv`, `rm`, and the like.
 - **`post`** — appends to `.buildcli/journal/session.log`, rotating it past `journal_max_kb`: every
   edit, every run of the project's test command, and every command matching `journal_commands`.
 - **`stop`** — journals a checkpoint naming the active blueprint, the claimed units, how many units

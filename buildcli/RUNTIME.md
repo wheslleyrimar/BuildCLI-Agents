@@ -259,6 +259,12 @@ than no harness.
 config, scratch files — always passes. Enforcement targets the specific failure of drifting into
 another band mid-unit, not all editing.
 
+**Shell writes are judged too.** With `Bash` routed to `pre-write`, the gate reads the files a
+command would create, change, or delete: output redirections (heredocs included), `tee`, `sed -i`,
+`perl -i`, `cp`, `mv` (source and destination — a move deletes the source), `install`, `ln`, `rm`,
+`unlink`, `touch`, `truncate`, and `dd of=`. `cd` is followed and `bash -c` unfolded, as for reads.
+A write made from inside an interpreter (`python -c`, a script, `node -e`) is not seen.
+
 **Enforcement needs a single claimed unit *per caller*.** With an identity, the gate resolves that
 agent's own claim and holds it to that band, so parallel workers each stay inside their own. Without
 one — or when the host hands every worker the same `$BCX_AGENT_ID` — several claims look like one

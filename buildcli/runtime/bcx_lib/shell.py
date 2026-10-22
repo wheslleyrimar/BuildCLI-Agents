@@ -4,6 +4,7 @@ Best-effort on purpose. The gates fail open, so a line this cannot take apart is
 a line nobody is held to — never a reason to block.
 """
 
+import os
 import re
 import shlex
 
@@ -48,9 +49,9 @@ def commands(line):
     """Each simple command in a shell line, in order.
 
     Returns dicts of `words` (leading VAR=value and wrappers like `env` dropped,
-    the program reduced by `program()`) and `piped` (stdin comes from a pipe).
-    Redirections are removed with their targets. `bash -c '...'` is unfolded into
-    the commands it runs.
+    the program reduced by `program()`), `piped` (stdin comes from a pipe), and
+    `writes` (files an output redirection opens). Redirections are taken out of
+    `words`. `bash -c '...'` is unfolded into the commands it runs.
     """
     if not isinstance(line, str):
         return []
@@ -59,29 +60,33 @@ def commands(line):
         tokens = _tokens(text)
     except ValueError:
         # An unbalanced quote. Fall back to splitting on the obvious operators.
-        return [{"words": w, "piped": False}
+        return [{"words": w, "piped": False, "writes": []}
                 for w in (_clean(seg.split()) for seg in _FALLBACK_SPLIT.split(line)) if w]
 
-    out, words, piped, skip = [], [], False, False
+    out, words, writes, piped, redirect = [], [], [], False, None
     for tok in tokens:
-        if skip:
-            skip = False
+        if redirect is not None:
+            # `>&2` and `>&-` duplicate or close a descriptor; nothing is opened.
+            dup = redirect.endswith("&") and (tok.isdigit() or tok == "-")
+            if ">" in redirect and not dup:
+                writes.append(tok)
+            redirect = None
             continue
         if tok and all(c in _PUNCT for c in tok):
-            if "<" in tok or ">" in tok:
+            if ("<" in tok or ">" in tok) and "(" not in tok:
                 if words and words[-1].isdigit():
                     words.pop()  # the fd number of `2>&1`
-                skip = True
+                redirect = tok
                 continue
-            _emit(out, words, piped)
-            words, piped = [], tok in ("|", "|&")
+            _emit(out, words, piped, writes)
+            words, writes, piped = [], [], tok in ("|", "|&")
             continue
         words.append(tok)
-    _emit(out, words, piped)
+    _emit(out, words, piped, writes)
     return out
 
 
-def _emit(out, words, piped):
+def _emit(out, words, piped, writes):
     words = _clean(words)
     if not words:
         return
@@ -90,7 +95,7 @@ def _emit(out, words, piped):
             if w.startswith("-") and not w.startswith("--") and "c" in w:
                 out.extend(commands(words[i + 1]))
                 return
-    out.append({"words": words, "piped": piped})
+    out.append({"words": words, "piped": piped, "writes": writes})
 
 
 def _clean(words):
@@ -103,5 +108,22 @@ def _clean(words):
 
 
 def segments(line):
-    """The words of each simple command — `commands()` without the pipe flag."""
+    """The words of each simple command — `commands()` without the other keys."""
     return [c["words"] for c in commands(line)]
+
+
+def walk(line, cwd):
+    """Each command of a line with the directory it runs in.
+
+    A `cd` moves the directory and is not yielded. One that cannot be followed
+    (`cd -`) ends the walk, because nothing after it can be placed.
+    """
+    for cmd in commands(line):
+        words = cmd["words"]
+        if words[0] == "cd":
+            target = words[1] if len(words) > 1 else "~"
+            if target == "-":
+                return
+            cwd = os.path.join(cwd, os.path.expanduser(target))
+            continue
+        yield cmd, cwd
