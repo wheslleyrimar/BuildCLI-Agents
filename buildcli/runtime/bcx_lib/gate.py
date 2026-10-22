@@ -136,6 +136,17 @@ def _rel(root, path):
         return path
 
 
+def _real_rel(root, path):
+    """Like _rel, but through symlinks — a link to the context file is the context file."""
+    try:
+        if not os.path.isabs(path):
+            path = os.path.join(root, path)
+        return os.path.relpath(os.path.realpath(path),
+                               os.path.realpath(root)).replace(os.sep, "/")
+    except Exception:
+        return path
+
+
 def _deny(message):
     sys.stderr.write(message.rstrip() + "\n")
     return BLOCK
@@ -205,8 +216,11 @@ def pre_read(root, event):
     if not path:
         return ALLOW
 
-    rel = _rel(root, path)
-    if rel != os.path.join(paths.STATE_DIR, paths.CONTEXT).replace(os.sep, "/"):
+    # Both spellings: the path as given, and where it lands after symlinks. The
+    # first catches a context file that is itself a link; the second, a link
+    # elsewhere in the project that points at it.
+    target = os.path.join(paths.STATE_DIR, paths.CONTEXT).replace(os.sep, "/")
+    if target not in (_rel(root, path), _real_rel(root, path)):
         return ALLOW
 
     return _deny(

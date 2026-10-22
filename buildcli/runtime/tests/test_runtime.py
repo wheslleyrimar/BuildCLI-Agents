@@ -21,6 +21,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bcx_lib import (claims, cli, context, gate, paths, resume, shim, state,  # noqa: E402
                      verify, worklist)
 
+# The kit's Claude rig template. Absent when the runtime runs from a bootstrapped
+# project rather than the kit, so the test that reads it skips there.
+CLAUDE_RIG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "..", "..", "claude", "commands", "rig.md")
+
 CONTEXT = """# Project Context
 
 ## Stack
@@ -198,6 +203,44 @@ class TestGate(Base):
 
     def test_other_reads_pass(self):
         self.assertEqual(gate.pre_read(self.root, self._event("src/api/x.py")), gate.ALLOW)
+
+    def test_claude_bash_context_read_is_blocked(self):
+        event = {"cwd": self.root, "tool_name": "Bash",
+                 "tool_input": {"command": "cat .buildcli/context.md"}}
+        self.assertEqual(gate.pre_read(self.root, event), gate.BLOCK)
+
+    def test_claude_grep_on_context_is_blocked(self):
+        event = {"cwd": self.root, "tool_name": "Grep",
+                 "tool_input": {"pattern": ".", "path": ".buildcli/context.md"}}
+        self.assertEqual(gate.pre_read(self.root, event), gate.BLOCK)
+
+    def test_symlink_to_context_is_blocked(self):
+        os.symlink(paths.context_path(self.root), os.path.join(self.root, "notes.md"))
+        self.assertEqual(gate.pre_read(self.root, self._event("notes.md")), gate.BLOCK)
+
+    def test_symlinked_state_dir_is_blocked(self):
+        os.symlink(os.path.join(self.root, ".buildcli"), os.path.join(self.root, "state"))
+        self.assertEqual(
+            gate.pre_read(self.root, self._event("state/context.md")), gate.BLOCK)
+
+    def test_symlink_elsewhere_passes(self):
+        paths.write_text(os.path.join(self.root, "README.md"), "# readme\n")
+        os.symlink(os.path.join(self.root, "README.md"), os.path.join(self.root, "link.md"))
+        self.assertEqual(gate.pre_read(self.root, self._event("link.md")), gate.ALLOW)
+
+    @unittest.skipUnless(os.path.isfile(CLAUDE_RIG), "kit rig template not present")
+    def test_claude_rig_template_gates_bash_and_grep(self):
+        # The gate can only judge what the host sends it. A matcher that leaves
+        # Bash out makes `cat .buildcli/context.md` invisible to pre-read.
+        text = paths.read_text(CLAUDE_RIG)
+        block = re.search(r"```json\n(\{.*?\n\})\n```", text, re.S).group(1)
+        pre = json.loads(block)["hooks"]["PreToolUse"]
+        matchers = [m["matcher"] for m in pre
+                    if any("gate pre-read" in h["command"] for h in m["hooks"])]
+        self.assertEqual(len(matchers), 1)
+        tools = matchers[0].split("|")
+        for tool in ("Read", "Bash", "Grep"):
+            self.assertIn(tool, tools)
 
     def test_cross_band_write_is_blocked(self):
         self._configure()

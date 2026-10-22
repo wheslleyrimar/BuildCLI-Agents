@@ -85,7 +85,7 @@ applies. Three levels, each additive:
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Read",
+        "matcher": "Read|Bash|Grep",
         "hooks": [{ "type": "command", "command": ".buildcli/runtime/bcx gate pre-read" }]
       },
       {
@@ -117,8 +117,9 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
 
 ## What each gate does
 
-- **`pre-read`** — blocks a raw `Read` of `.buildcli/context.md` and points at `.buildcli/runtime/bcx band <name>`.
-  This is what makes band scoping real: the whole file cannot be loaded.
+- **`pre-read`** — blocks a raw read of `.buildcli/context.md` — a `Read` or `Grep` aimed at it,
+  directly or through a symlink, or a `Bash` command that names it — and points at
+  `.buildcli/runtime/bcx band <name>`. This is what makes band scoping real: the whole file cannot be loaded.
 - **`pre-write`** — while exactly one unit is claimed (`.buildcli/runtime/bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
   and root config stay editable.
