@@ -72,7 +72,8 @@ Every task loads:         A service task loads:
 ```
 
 The saving is not a convention you hope the model honours. A runtime returns exactly one band,
-and a `PreToolUse` hook blocks any attempt to read the context file whole.
+and a `PreToolUse` hook blocks reading the context file whole — by its path, by a glob or symlink
+that lands on it, or swept up by a project-wide search.
 
 ---
 
@@ -102,6 +103,7 @@ to make sense is a band that was written wrong.
 ├── context.md            ← written by survey
 ├── active                ← one line: "blueprints/features/checkout-flow"
 ├── journal/session.log   ← audit trail, written by rig's hooks
+├── .ignore               ← keeps ripgrep-based search out of context.md
 └── runtime/bcx           ← `bcx gate stop` closes every hooked session
 
 blueprints/
@@ -194,9 +196,9 @@ Three things stop being advisory:
 
 | Hook | Effect |
 |---|---|
-| `PreToolUse` on reads / Bash | **blocks** a raw read of `.buildcli/context.md`, and a recursive search that would sweep it up |
-| `PreToolUse` on writes / `apply_patch` / Bash | **blocks** writes into a band other than the claimed unit's, shell redirections and `sed -i` included |
-| `PostToolUse` | journals every edit and every test/lint/build command |
+| `PreToolUse` on reads / Bash / Grep | **blocks** a raw read of `.buildcli/context.md` — by path, glob, symlink, or a variable set on the line — and a search that would sweep it up: `grep -r`, `git grep`, `rg -uu`, `ack`, or a file list piped into `xargs cat` |
+| `PreToolUse` on writes / `apply_patch` / Bash | **blocks** writes into a band other than the claimed unit's — shell redirections, `sed -i`, `cp`, `mv`, and `rm` included |
+| `PostToolUse` | journals every edit, every run of the project's test command, and every command listed in `journal_commands` |
 | `Stop` | journals a checkpoint — blueprint, claims, units completed, verify outcome |
 | `SessionStart` | prints `bcx resume` as context, so a new session opens knowing where it is |
 
@@ -204,7 +206,8 @@ Three things stop being advisory:
 .claude/settings.json          hooks + scoped permissions
 .codex/hooks.json              Codex lifecycle hooks
 .buildcli/bands.json           which paths each band owns
-.buildcli/enforce.json         the off switch, per gate
+.buildcli/enforce.json         the off switch, per gate (`search_gate` for the search checks)
+.buildcli/.ignore              written by bootstrap — ripgrep and the agents' search tools skip context.md
 .buildcli/journal/session.log  2026-08-22 14:32:01 | EDIT | src/api/checkout.ts
 ```
 
@@ -219,6 +222,11 @@ Two design rules worth knowing before you rely on it:
 - **Every gate fails open.** Malformed input, missing config, internal error — the call is allowed.
   A harness that breaks the session on its own bug is worse than no harness.
 - **Only cross-band writes are blocked.** Paths no band claims — docs, root config — always pass.
+- **The gates read the command line; they do not run it.** A program that opens a file from the
+  inside (`python script.py`, `node -e ...`) or a command substitution (`cat $(find . -type f)`) is
+  not seen. The gates catch accidents, not an agent working to get around them.
+
+After upgrading the kit, re-run `rig --enforce` so the hook matchers pick up new tools.
 
 Blocking gates ship for Claude Code and Codex. Gemini and Copilot get the runtime but not lifecycle
 hook enforcement. See `buildcli/RUNTIME.md` for the full contract.
@@ -360,6 +368,7 @@ each startup file, and leaves everything you wrote around it untouched.
 │   └── copilot-instructions.md
 ├── .buildcli/
 │   ├── context.md
+│   ├── .ignore              keeps project-wide search out of context.md
 │   ├── runtime/bcx          the executable
 │   └── journal/
 ├── blueprints/
