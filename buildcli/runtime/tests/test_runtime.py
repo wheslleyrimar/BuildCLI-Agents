@@ -2203,7 +2203,14 @@ class TestSearchGate(Base):
     def test_rg_type_md_still_blocks(self):
         self.assertTrue(self._leak("rg -uu -t md foo"))
 
-    def test_git_grep(self):
+    def _git(self, *args):
+        subprocess.run(["git", "-C", self.root] + list(args), check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    @unittest.skipUnless(shutil.which("git"), "git not installed")
+    def test_git_grep_over_a_tracked_context_is_blocked(self):
+        self._git("init", "-q")
+        self._git("add", ".buildcli/context.md")
         self.assertTrue(self._leak("git grep foo"))
         self.assertTrue(self._leak("git --no-pager grep -n foo"))
         self.assertIsNone(self._leak("git grep foo -- . ':!.buildcli'"))
@@ -2211,6 +2218,19 @@ class TestSearchGate(Base):
         self.assertIsNone(self._leak("git log --grep foo"))
         os.makedirs(os.path.join(self.root, "src"))
         self.assertIsNone(self._leak("git -C src grep foo"))
+
+    @unittest.skipUnless(shutil.which("git"), "git not installed")
+    def test_git_grep_passes_when_git_cannot_see_the_context(self):
+        self._git("init", "-q")
+        self.assertIsNone(self._leak("git grep foo"))             # untracked
+        self.assertTrue(self._leak("git grep --untracked foo"))   # ...unless asked for
+        paths.write_text(os.path.join(self.root, ".gitignore"), ".buildcli/\n")
+        self.assertIsNone(self._leak("git grep --untracked foo"))
+        self.assertTrue(self._leak("git grep --untracked --no-exclude-standard foo"))
+
+    def test_git_grep_outside_a_repository(self):
+        self.assertIsNone(self._leak("git grep foo"))
+        self.assertTrue(self._leak("git grep --no-index foo"))
 
     def test_shell_c_is_judged(self):
         self.assertTrue(self._leak("bash -lc 'grep -r foo .'"))

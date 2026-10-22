@@ -13,6 +13,7 @@ allowed, like every other gate decision.
 import glob
 import os
 import re
+import subprocess
 
 from . import paths, shell
 
@@ -212,7 +213,8 @@ def _git_grep(root, cwd, words, piped):
     if not args or args[0] != "grep":
         return None
     flags, pos = _parse(args[1:], _GIT_VALUE_SHORT, _GIT_VALUE_LONG)
-    if {n for n, _ in flags} & _GIT_NAMES_ONLY:
+    names = {n for n, _ in flags}
+    if names & _GIT_NAMES_ONLY:
         return None
     specs = _paths_after_pattern(flags, pos)
     if any(paths.STATE_DIR in s and (s.startswith(":!") or s.startswith(":^")
@@ -222,11 +224,45 @@ def _git_grep(root, cwd, words, piped):
     state = _state(root)
     if not any(_within(state, t) for t in _targets(cwd, operands)):
         return None
+    if not _git_sees_context(root, cwd, names):
+        return None
     return ("Blocked: this git grep covers .buildcli/ and would print every band of the "
             "context file.\nExclude the state directory with a pathspec:\n"
             "    git grep ... -- . ':!.buildcli'\n"
             "Load project context one band at a time:\n"
             "    bcx band <service|interface|store|verify|delivery>")
+
+
+def _git(cwd, *args):
+    """A git exit code, or None when git could not be asked."""
+    try:
+        return subprocess.run(["git", "-C", cwd] + list(args), stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=5).returncode
+    except Exception:
+        return None
+
+
+def _git_sees_context(root, cwd, names):
+    """Whether git grep would search context.md at all.
+
+    It reads tracked files only, unless --untracked adds files .gitignore does not
+    exclude, or --no-index drops git out of it. A project that keeps .buildcli/
+    out of git is safe from a plain `git grep`, and blocking it there would be
+    friction with nothing behind it. When git cannot be asked, allow.
+    """
+    if "--no-index" in names:
+        return True
+    ctx = paths.context_path(root)
+    tracked = _git(cwd, "ls-files", "--error-unmatch", "--", ctx)
+    if tracked is None:
+        return False
+    if tracked == 0:
+        return True
+    if "--untracked" not in names:
+        return False
+    if "--no-exclude-standard" in names:
+        return True
+    return _git(cwd, "check-ignore", "-q", "--", ctx) != 0
 
 
 def leak(root, cwd, line):

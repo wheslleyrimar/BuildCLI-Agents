@@ -155,7 +155,9 @@ not a tool call, and there is nothing there worth refusing.
 `-d recurse`), `git grep`, or `rg` that disables ignore files, run from anywhere that reaches
 `.buildcli/`, would print every band at once, and is blocked unless something keeps it out:
 `--exclude-dir=.buildcli`, `-g '!.buildcli'`, a `':!.buildcli'` pathspec, an `--include` or `-t`
-that rules out markdown, or a mode that prints only names or counts. `cd` within the line is
+that rules out markdown, or a mode that prints only names or counts. A plain `git grep` is
+blocked only when git would see the file — tracked, or reached by `--untracked` past `.gitignore`,
+or `--no-index`. `cd` within the line is
 followed, `bash -c` is unfolded, and here-document bodies are skipped as data. Bootstrap writes
 `.buildcli/.ignore` listing `context.md`, so ripgrep, and the agents' search tools built on it,
 skip the file even with `--hidden`; `doctor` reports an install without it. Other tools — `ack`,
