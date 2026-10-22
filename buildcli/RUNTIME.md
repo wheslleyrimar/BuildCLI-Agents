@@ -195,7 +195,8 @@ The switch, so the gates can be tuned without touching `settings.json`.
   "session_start": true,
   "journal_max_kb": 256,
   "routing": { "service": "codex", "interface": "claude" },
-  "lock_timeout_s": 10
+  "lock_timeout_s": 10,
+  "journal_commands": ["test", "lint", "build"]
 }
 ```
 
@@ -203,7 +204,11 @@ Every key is defaulted in the runtime, so a file written before a key existed ke
 `session_start: false` silences the digest; `journal_max_kb: 0` turns rotation off. `routing` maps a
 band to the agent best suited to it and is read only by `bcx next` — an empty table means no
 recommendation, never a recommendation of nobody. `lock_timeout_s` is how long a transition waits for
-the worklist mutex before giving up.
+the worklist mutex before giving up. `journal_commands` lists the words that earn a shell command a
+`CMD` line in the journal — lint, build, and any tool you want tracked. The test command needs no
+entry: the `post` gate matches the runner named in `[band:verify]`, so `pytest tests/x.py` counts
+when the band says `pytest -q`. Those runs are journaled as `test :: <command>`, and the digest trims
+the command the same way it trims `VERIFY` lines.
 
 ### `.buildcli/claims/`
 

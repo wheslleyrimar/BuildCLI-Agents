@@ -52,7 +52,8 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
      "session_start": true,
      "journal_max_kb": 256,
      "routing": {},
-     "lock_timeout_s": 10
+     "lock_timeout_s": 10,
+     "journal_commands": ["test", "lint", "build"]
    }
    ```
 6. Write the Codex hooks into `.codex/hooks.json`.
@@ -114,7 +115,8 @@ Turn the band rule from Codex guidance into project-local hooks. Three levels, e
 
 - `pre-read` blocks shell or tool reads of `.buildcli/context.md` and points at `bcx band <name>` or `bcx header`.
 - `pre-write` blocks `apply_patch` or write-tool changes to another band's owned paths while one unit is claimed.
-- `post` journals edits and test/lint/build commands.
+- `post` journals edits, runs of the project's test command (matched from `[band:verify]`), and
+  commands matching `journal_commands` in `enforce.json`.
 - `stop` writes a checkpoint.
 - `session-start` injects `bcx resume` as pointer-only context.
 

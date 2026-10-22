@@ -305,6 +305,52 @@ class TestGate(Base):
         self.assertTrue(any("src/api/x.py" in d for d in detail))
         self.assertTrue(any("src/api/y.py" in d for d in detail))
 
+    def _bash(self, command):
+        return {"cwd": self.root, "tool_name": "Bash", "tool_input": {"command": command}}
+
+    def _cmd_lines(self):
+        return [e["detail"] for e in state.journal_entries(self.root) if e["kind"] == "CMD"]
+
+    def test_runner_drops_cd_flags_and_paths(self):
+        self.assertEqual(gate.runner("cd app && python3 -m unittest discover -s tests -q"),
+                         ["python3", "-m", "unittest"])
+        self.assertEqual(gate.runner("CI=1 npm run test:unit -- --watch=false"),
+                         ["npm", "run", "test:unit"])
+        self.assertEqual(gate.runner("go test ./..."), ["go", "test"])
+        self.assertEqual(gate.runner("pytest -q tests/"), ["pytest"])
+        self.assertIsNone(gate.runner("cd app"))
+
+    def test_project_test_command_is_journaled_without_a_word_list(self):
+        # The fixture's [band:verify] names `python3 -m unittest -q`. None of
+        # test/lint/build appears in a narrowed run of it.
+        gate.post_tool(self.root, self._bash(
+            "python3 -m unittest tests.test_runtime.TestGate -v"))
+        self.assertEqual(self._cmd_lines(),
+                         ["test :: python3 -m unittest tests.test_runtime.TestGate -v"])
+
+    def test_other_runners_need_a_configured_word(self):
+        gate.post_tool(self.root, self._bash("eslint src/"))
+        self.assertEqual(self._cmd_lines(), [])
+        paths.write_text(paths.enforce_path(self.root),
+                         json.dumps({"journal_commands": ["eslint"]}))
+        gate.post_tool(self.root, self._bash("eslint src/"))
+        self.assertEqual(self._cmd_lines(), ["eslint :: eslint src/"])
+
+    def test_default_words_still_journal(self):
+        gate.post_tool(self.root, self._bash("npm run build"))
+        self.assertEqual(self._cmd_lines(), ["build :: npm run build"])
+
+    def test_unrelated_commands_are_not_journaled(self):
+        gate.post_tool(self.root, self._bash("git status"))
+        gate.post_tool(self.root, self._bash("python3 manage.py migrate"))
+        self.assertEqual(self._cmd_lines(), [])
+
+    def test_bad_journal_commands_falls_back_to_defaults(self):
+        paths.write_text(paths.enforce_path(self.root),
+                         json.dumps({"journal_commands": "lint"}))
+        gate.post_tool(self.root, self._bash("make lint"))
+        self.assertEqual(self._cmd_lines(), ["lint :: make lint"])
+
 
 class TestShim(unittest.TestCase):
     def setUp(self):
@@ -489,6 +535,14 @@ class TestResume(Base):
         self.assertNotIn(command, text)      # the band text is not
         entries = cli.resume_payload(self.root)["journal"]
         self.assertFalse([e for e in entries if command in e["detail"]])
+
+    def test_a_journaled_test_run_is_trimmed_too(self):
+        command = verify.discover_command(self.root)
+        gate.post_tool(self.root, {"cwd": self.root, "tool_name": "Bash",
+                                   "tool_input": {"command": command}})
+        text = "\n".join(cli.resume_lines(self.root))
+        self.assertIn("test :: (command in [band:verify])", text)
+        self.assertNotIn(command, text)
 
     def test_a_verify_timeout_is_trimmed_the_same_way(self):
         command = verify.discover_command(self.root)

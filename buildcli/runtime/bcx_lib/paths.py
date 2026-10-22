@@ -36,6 +36,9 @@ DEFAULT_ENFORCE = {
     "journal_max_kb": 256,    # rotate past this size; 0 or less disables rotation
     "routing": {},            # band -> agent name, reported by `bcx next`
     "lock_timeout_s": 10,     # how long a transition waits for the worklist mutex
+    # Words that mark a shell command as worth a journal line. The test command
+    # needs no entry — it is matched from [band:verify].
+    "journal_commands": ["test", "lint", "build"],
 }
 
 

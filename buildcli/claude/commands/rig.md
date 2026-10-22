@@ -55,7 +55,8 @@ applies. Three levels, each additive:
      "session_start": true,
      "journal_max_kb": 256,
      "routing": {},
-     "lock_timeout_s": 10
+     "lock_timeout_s": 10,
+     "journal_commands": ["test", "lint", "build"]
    }
    ```
    Every key is defaulted in the runtime, so an older `enforce.json` keeps working. `session_start`
@@ -63,6 +64,8 @@ applies. Three levels, each additive:
    to the agent best suited to it — read only by `bcx next`, and an empty table simply means no
    recommendation. `lock_timeout_s` is how long a unit transition waits for the worklist mutex before
    giving up; it is not a staleness threshold, and the runtime derives that separately on purpose.
+   `journal_commands` lists the words that get a shell command journaled — add the project's lint
+   and build tools here. The test command needs no entry; it is matched from `[band:verify]`.
 6. Write the hooks into `.claude/settings.json` (see below).
 7. Create `.buildcli/journal/` with a `.gitkeep` and a `.gitignore` that keeps the directory and
    ignores `*.log`.
@@ -124,7 +127,8 @@ Without `--enforce`, omit the `PreToolUse` block and keep the rest.
 - **`pre-write`** — while exactly one unit is claimed (`.buildcli/runtime/bcx claim <id>`), blocks writes to paths
   that `bands.json` assigns to a *different* band. Paths no band claims are always allowed, so docs
   and root config stay editable.
-- **`post`** — appends to `.buildcli/journal/session.log`, rotating it past `journal_max_kb`.
+- **`post`** — appends to `.buildcli/journal/session.log`, rotating it past `journal_max_kb`: every
+  edit, every run of the project's test command, and every command matching `journal_commands`.
 - **`stop`** — journals a checkpoint naming the active blueprint, the claimed units, how many units
   completed during the session, and the verify outcome. Runs `.buildcli/runtime/bcx verify` first when
   `verify_on_stop` is true.

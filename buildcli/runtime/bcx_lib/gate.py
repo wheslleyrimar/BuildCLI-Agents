@@ -286,9 +286,84 @@ def post_tool(root, event):
             state.journal(root, "edit", "%-9s %s" % (tool, _rel(root, path)))
     else:
         cmd = (event.get("tool_input") or {}).get("command")
-        if cmd and re.search(r"\b(test|lint|build)\b", cmd):
-            state.journal(root, "cmd", cmd.strip()[:200])
+        if isinstance(cmd, str) and cmd.strip():
+            label = command_label(root, cmd)
+            if label:
+                # ` :: ` before the command, so `resume` can trim a test command
+                # with the same rule it uses on VERIFY lines.
+                state.journal(root, "cmd", "%s :: %s" % (label, cmd.strip()[:200]))
     return ALLOW
+
+
+# Programs that launch something else: the runner is in the words after them.
+_LAUNCHERS = {
+    "npm", "npx", "pnpm", "yarn", "bun", "bunx", "deno", "uv", "uvx", "poetry",
+    "pipenv", "hatch", "bundle", "go", "cargo", "dotnet", "make", "mvn", "gradle",
+    "./gradlew", "mix", "python", "python3",
+}
+_SEGMENT = re.compile(r"&&|\|\||[;|]")
+_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def _segments(command):
+    """Each simple command in a shell line, as words, without leading VAR=value."""
+    out = []
+    for seg in _SEGMENT.split(command):
+        words = seg.split()
+        while words and _ASSIGNMENT.match(words[0]):
+            words.pop(0)
+        if words:
+            out.append(words)
+    return out
+
+
+def runner(command):
+    """The words of a test command that name its runner, or None.
+
+    `cd app && python3 -m unittest discover -s tests` gives python3 -m unittest.
+    Flags and paths after the runner are left off, so a run narrowed to one file
+    or one test still counts as running the suite's runner.
+    """
+    segs = [s for s in _segments(command) if s[0] != "cd"]
+    if not segs:
+        return None
+    words = segs[-1]
+    out = [words[0]]
+    if words[0] not in _LAUNCHERS:
+        return out
+    rest, kept = words[1:], 0
+    while rest and kept < 2:
+        w = rest.pop(0)
+        if w == "-m" and rest:
+            out += [w, rest.pop(0)]
+            break  # the module is the runner; what follows is its arguments
+        elif w.startswith("-") or "/" in w:
+            break
+        else:
+            out.append(w)
+            kept += 1
+    return out
+
+
+def command_label(root, command):
+    """What a shell command is, for the journal, or None when it earns no line.
+
+    The project's own test command comes first, read from [band:verify] the way
+    `bcx verify` reads it, so any runner counts without a list naming it. Lint,
+    build, and the rest are words from `journal_commands` in enforce.json.
+    """
+    test_cmd = verify.discover_command(root)
+    words = runner(test_cmd) if test_cmd else None
+    if words and any(seg[:len(words)] == words for seg in _segments(command)):
+        return "test"
+    names = paths.settings(root).get("journal_commands")
+    if not isinstance(names, list):
+        names = DEFAULT_ENFORCE["journal_commands"]
+    for name in names:
+        if isinstance(name, str) and name.strip() and \
+                re.search(r"\b%s\b" % re.escape(name.strip()), command):
+            return name.strip()
+    return None
 
 
 def checkpoint(root, result=None):

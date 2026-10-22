@@ -70,6 +70,10 @@ def safe_detail(entry):
     detail = entry.get("detail", "")
     if entry.get("kind") == "VERIFY" and " :: " in detail:
         return detail.split(" :: ", 1)[0] + " :: (command in [band:verify])"
+    # The post gate labels a run of the project's test command `test`, and that
+    # command usually came out of [band:verify] too.
+    if entry.get("kind") == "CMD" and detail.startswith("test :: "):
+        return "test :: (command in [band:verify])"
     return detail
 
 
